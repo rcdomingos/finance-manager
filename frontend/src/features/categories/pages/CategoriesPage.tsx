@@ -5,10 +5,22 @@ import { CategoryCard } from "../components/CategoryCard";
 import type { Category, TransactionType } from "../../../types";
 import { Button } from "../../../components/ui/Button";
 import { Modal } from "../../../components/ui/Modal";
+import { useCreateCategory } from "../hooks/useCreateCategory";
+import { CategoryForm } from "../components/CategoryForm";
 
 export const CategoriesPage = () => {
   const { data: categories, isLoading, isError } = useCategories();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const createMutation = useCreateCategory();
+
+  const handleCreateSubmit = (data: any) => {
+    createMutation.mutate(data, {
+      onSuccess: () => {
+        setIsModalOpen(false); // Fecha o modal
+      },
+    });
+  };
 
   const getCategoriesByType = (type: TransactionType) => {
     return categories?.filter((c) => c.type === type) || [];
@@ -109,23 +121,18 @@ export const CategoriesPage = () => {
           </div>
         )}
       </div>
-      {/* Modal Nova Categoria */}
+      {/* Modal: Nova Categoria */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Nova Categoria"
-        description="Preencha os dados para criar uma nova categoria principal e suas subcategorias."
+        description="Crie uma categoria principal e adicione suas subcategorias."
       >
-        <div className="h-32 flex items-center justify-center text-gray-400 border-2 border-dashed rounded-lg">
-          Aqui entrará o formulário
-        </div>
-
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={() => setIsModalOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => alert("Salvar (em breve)")}>Salvar</Button>
-        </div>
+        <CategoryForm
+          onSubmit={handleCreateSubmit}
+          onCancel={() => setIsModalOpen(false)}
+          isLoading={createMutation.isPending}
+        />
       </Modal>
     </div>
   );
