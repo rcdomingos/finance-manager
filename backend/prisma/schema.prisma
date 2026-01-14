@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+model BankAccount {
+  id             String   @id @default(uuid())
+  bankName       String
+  initialBalance Float    @default(0)
+  // O saldo atual será atualizado via transação, funcionando como um cache
+  currentBalance Float    @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  transactions Transaction[]
+}
+
+model CreditCard {
+  id        String   @id @default(uuid())
+  title     String
+  brand     String // Visa, Master, etc.
+  limit     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+}
+
+model Category {
+  id            String          @id @default(uuid())
+  name          String
+  type          TransactionType
+  subCategories SubCategory[]
+  createdAt     DateTime        @default(now())
+}
+
+model SubCategory {
+  id   String @id @default(uuid())
+  name String
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  transactions Transaction[]
+  createdAt    DateTime      @default(now())
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  description String?
+  amount      Float
+  date        DateTime
+  type        TransactionType
+
+  // Relacionamento com Categoria (Via Subcategoria para precisão)
+  subCategoryId String
+  subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])
+
+  // Forma de Pagamento: Pode ser Conta OU Cartão (Campos opcionais)
+  // Regra de negócio: Um dos dois deve estar preenchido, nunca ambos (validado no Service)
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  creditCardId String?
+  creditCard   CreditCard? @relation(fields: [creditCardId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
