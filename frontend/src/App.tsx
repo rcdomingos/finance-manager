@@ -8,8 +8,9 @@ import { Dashboard } from "./pages/Dashboard";
 import { CategoriesPage } from "./features/categories/pages/CategoriesPage";
 import { AccountsPage } from "./features/accounts/pages/AccountsPage";
 import { CardsPage } from "./features/cards/pages/CardsPage";
+import { TransactionsPage } from "./features/transactions/pages/TransactionsPage";
 
-const Transactions = () => <h1 className="text-2xl font-bold">Lançamentos</h1>;
+// mocks page:
 const Reports = () => <h1 className="text-2xl font-bold">Relatórios</h1>;
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
@@ -38,7 +39,7 @@ function App() {
             }
           >
             <Route index element={<Dashboard />} />
-            <Route path="transactions" element={<Transactions />} />
+            <Route path="transactions" element={<TransactionsPage />} />
             <Route path="reports" element={<Reports />} />
 
             {/* Rotas de Cadastro */}

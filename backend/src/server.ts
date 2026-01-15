@@ -286,6 +286,115 @@ app.post(
   }
 );
 
+// ROTA PARA TRANSAÇÕES
+const createTransactionSchema = z
+  .object({
+    description: z.string().min(1, "Descrição necessária"),
+    amount: z.coerce.number().min(0.01, "Valor deve ser positivo"),
+    date: z.coerce.date(), // Zod converte string ISO para Date object
+    type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
+
+    categoryId: z.string().uuid(),
+    subCategoryId: z.string().uuid(),
+
+    // Campos opcionais dependendo do método de pagamento
+    paymentMethod: z.enum(["BANK_ACCOUNT", "CREDIT_CARD"]),
+    bankAccountId: z.string().uuid().optional(),
+    creditCardId: z.string().uuid().optional(),
+  })
+  .refine(
+    (data) => {
+      // Validação Customizada: Se for Conta, precisa do ID da conta
+      if (data.paymentMethod === "BANK_ACCOUNT" && !data.bankAccountId)
+        return false;
+      // Se for Cartão, precisa do ID do cartão
+      if (data.paymentMethod === "CREDIT_CARD" && !data.creditCardId)
+        return false;
+      return true;
+    },
+    {
+      message: "Selecione a conta ou cartão corretamente",
+      path: ["paymentMethod"],
+    }
+  );
+
+app.post(
+  "/transactions",
+  { preHandler: [authenticate] },
+  async (request, reply) => {
+    const result = createTransactionSchema.safeParse(request.body);
+
+    if (!result.success) {
+      return reply
+        .status(400)
+        .send({ error: "Dados inválidos", details: result.error.format() });
+    }
+
+    const {
+      description,
+      amount,
+      date,
+      type,
+      categoryId,
+      subCategoryId,
+      paymentMethod,
+      bankAccountId,
+      creditCardId,
+    } = result.data;
+
+    const userId = request.user!.id; // Pega do token
+
+    try {
+      // PRISMA TRANSACTION: Atomicidade garantida
+      await prisma.$transaction(async (tx) => {
+        // 1. Criar o Registro da Transação
+        await tx.transaction.create({
+          data: {
+            description,
+            amount,
+            date,
+            type,
+            paymentMethod,
+            userId,
+            categoryId,
+            subCategoryId,
+            bankAccountId:
+              paymentMethod === "BANK_ACCOUNT" ? bankAccountId : null,
+            creditCardId: paymentMethod === "CREDIT_CARD" ? creditCardId : null,
+          },
+        });
+
+        // 2. Atualizar Saldos (A Lógica Financeira)
+        if (paymentMethod === "BANK_ACCOUNT" && bankAccountId) {
+          if (type === "INCOME") {
+            // Receita: Aumenta o saldo
+            await tx.bankAccount.update({
+              where: { id: bankAccountId },
+              data: { currentBalance: { increment: amount } },
+            });
+          } else if (type === "EXPENSE") {
+            // Despesa: Diminui o saldo
+            await tx.bankAccount.update({
+              where: { id: bankAccountId },
+              data: { currentBalance: { decrement: amount } },
+            });
+          }
+        }
+
+        //TODO: Se for Cartão de Crédito, não mexemos no saldo da conta agora.
+        // Futuramente, podemos ter um campo 'usedLimit' no cartão e incrementar aqui.
+      });
+
+      return reply
+        .status(201)
+        .send({ message: "Transação criada com sucesso!" });
+    } catch (err) {
+      console.error(err);
+      return reply.status(500).send({ error: "Erro ao processar transação" });
+    }
+  }
+);
+
 const start = async () => {
   try {
     await app.listen({ port: port });

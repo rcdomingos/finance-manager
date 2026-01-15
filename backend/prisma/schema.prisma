@@ -65,6 +65,8 @@ model Category {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   subCategories SubCategory[]
+
+  transactions Transaction[]
 }
 
 model SubCategory {
@@ -86,7 +88,12 @@ model Transaction {
   description String?
   amount      Float
   date        DateTime
-  type        String
+  type        String // INCOME, EXPENSE, TRANSFER
+
+  paymentMethod String // BANK_ACCOUNT, CREDIT_CARD
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
 
   subCategoryId String
   subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])

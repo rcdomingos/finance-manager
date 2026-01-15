@@ -29,3 +29,15 @@ export interface CreditCard {
   closingDate: number;
   isActive: boolean;
 }
+
+export interface Transaction {
+  id: string;
+  description: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  date: string;
+  category: { name: string };
+  subCategory: { name: string };
+  bankAccount?: { bankName: string };
+  creditCard?: { title: string };
+}
