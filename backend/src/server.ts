@@ -143,6 +143,47 @@ app.post("/bank-accounts", async (request, reply) => {
   }
 });
 
+// ROTAS PARA CARTÕES DE CRÉDITO
+const createCreditCardSchema = z.object({
+  title: z.string().min(1, "Nome do cartão é obrigatório"),
+  brand: z.string().min(1, "Bandeira é obrigatória"), // Visa, Mastercard, etc.
+  limit: z.number().min(0, "Limite deve ser positivo"),
+});
+
+app.get("/credit-cards", async () => {
+  const cards = await prisma.creditCard.findMany({
+    orderBy: { title: "asc" },
+  });
+  return cards;
+});
+
+app.post("/credit-cards", async (request, reply) => {
+  const parseResult = createCreditCardSchema.safeParse(request.body);
+
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      error: "Dados inválidos",
+      details: parseResult.error.format(),
+    });
+  }
+
+  const { title, brand, limit } = parseResult.data;
+
+  try {
+    const card = await prisma.creditCard.create({
+      data: {
+        title,
+        brand,
+        limit,
+      },
+    });
+    return reply.status(201).send(card);
+  } catch (error) {
+    console.error(error);
+    return reply.status(500).send({ error: "Erro ao criar cartão" });
+  }
+});
+
 const start = async () => {
   try {
     await app.listen({ port: port });

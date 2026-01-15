@@ -32,7 +32,7 @@ export const AccountForm = ({
     handleSubmit,
     formState: { errors },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       bankName: "",
       initialBalance: 0,

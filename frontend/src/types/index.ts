@@ -24,4 +24,5 @@ export interface CreditCard {
   id: string;
   title: string;
   limit: number;
+  brand: string;
 }

@@ -3,10 +3,10 @@ import { MainLayout } from "./components/layout/MainLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { CategoriesPage } from "./features/categories/pages/CategoriesPage";
 import { AccountsPage } from "./features/accounts/pages/AccountsPage";
+import { CardsPage } from "./features/cards/pages/CardsPage";
 
 const Transactions = () => <h1 className="text-2xl font-bold">Lançamentos</h1>;
 const Reports = () => <h1 className="text-2xl font-bold">Relatórios</h1>;
-const Cards = () => <h1 className="text-2xl font-bold">Meus Cartões</h1>;
 
 function App() {
   return (
@@ -22,7 +22,7 @@ function App() {
           {/* Rotas de Cadastro */}
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="accounts" element={<AccountsPage />} />
-          <Route path="cards" element={<Cards />} />
+          <Route path="cards" element={<CardsPage />} />
         </Route>
 
         {/* Redirecionar qualquer rota desconhecida para o dashboard */}
