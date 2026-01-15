@@ -9,12 +9,17 @@ import {
   Tags,
   Landmark,
   CreditCard,
+  LogOut,
+  UserIcon,
 } from "lucide-react";
 import { SidebarItem } from "./SidebarItem";
 import clsx from "clsx";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 export const Sidebar = () => {
+  const { signOut, user } = useAuth();
+
   const [isRegistrationsOpen, setIsRegistrationsOpen] = useState(true);
 
   return (
@@ -67,16 +72,50 @@ export const Sidebar = () => {
 
       {/* Footer User Area*/}
       <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
-            US
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
+              {user?.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="text-sm">
+              <p className="font-medium text-gray-700 truncate max-w-[100px]">
+                {user?.name}
+              </p>
+            </div>
           </div>
-          <div className="text-sm">
-            <p className="font-medium text-gray-700">Usuário</p>
-            <p className="text-xs text-gray-500">Admin</p>
-          </div>
+          <button
+            onClick={signOut}
+            title="Sair"
+            className="text-gray-400 hover:text-red-500"
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </div>
+
+      {/* <div className="mt-auto border-t pt-4 px-2">
+        <div className="flex items-center gap-3 p-2 mb-2">
+          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+            <UserIcon size={20} />
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-bold text-slate-900 truncate">
+              {user?.name}
+            </p>
+            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+          </div>
+        </div>
+        <button
+          onClick={signOut}
+          className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors group"
+        >
+          <LogOut
+            size={20}
+            className="group-hover:translate-x-1 transition-transform"
+          />
+          <span className="font-medium">Sign Out</span>
+        </button>
+      </div> */}
     </aside>
   );
 };

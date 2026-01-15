@@ -7,21 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum TransactionType {
-  INCOME
-  EXPENSE
-  TRANSFER
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  // Relações (Um usuário tem várias...)
+  bankAccounts  BankAccount[]
+  creditCards   CreditCard[]
+  categories    Category[]
+  transactions  Transaction[]
+  subCategories SubCategory[]
 }
 
 model BankAccount {
   id             String   @id @default(uuid())
   bankName       String
   initialBalance Float    @default(0)
-  // O saldo atual será atualizado via transação, funcionando como um cache
   currentBalance Float    @default(0)
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  // Vínculo com Usuário
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   transactions Transaction[]
 }
@@ -37,46 +49,56 @@ model CreditCard {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   transactions Transaction[]
 }
 
 model Category {
-  id            String          @id @default(uuid())
-  name          String
-  type          TransactionType
+  id        String   @id @default(uuid())
+  name      String
+  type      String // 'INCOME' | 'EXPENSE' | 'TRANSFER'
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   subCategories SubCategory[]
-  createdAt     DateTime        @default(now())
 }
 
 model SubCategory {
-  id   String @id @default(uuid())
-  name String
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   transactions Transaction[]
-  createdAt    DateTime      @default(now())
 }
 
 model Transaction {
-  id          String          @id @default(uuid())
+  id          String   @id @default(uuid())
   description String?
   amount      Float
   date        DateTime
-  type        TransactionType
+  type        String
 
-  // Relacionamento com Categoria (Via Subcategoria para precisão)
   subCategoryId String
   subCategory   SubCategory @relation(fields: [subCategoryId], references: [id])
 
-  // Forma de Pagamento: Pode ser Conta OU Cartão (Campos opcionais)
-  // Regra de negócio: Um dos dois deve estar preenchido, nunca ambos (validado no Service)
   bankAccountId String?
   bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
 
   creditCardId String?
   creditCard   CreditCard? @relation(fields: [creditCardId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

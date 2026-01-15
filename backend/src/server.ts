@@ -1,29 +1,111 @@
+import * as dotenv from "dotenv";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
-
-import * as dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+import { authenticate, signToken } from "./lib/auth";
 
 dotenv.config();
 
 const app = Fastify();
+const prisma = new PrismaClient();
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3333;
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
-});
-
 app.register(cors);
 
+// --- ROTAS PÚBLICAS (AUTH) ---
 app.get("/health", async () => {
   return { status: "OK", message: "API is running" };
 });
+
+// Schema Registro
+const registerSchema = z.object({
+  name: z.string(),
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+app.post("/auth/register", async (req, reply) => {
+  const { name, email, password } = registerSchema.parse(req.body);
+
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser)
+    return reply.status(400).send({ error: "User already exists" });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  // Transaction para criar User E categorias padrão
+  const user = await prisma.$transaction(async (tx) => {
+    // 1. Cria Usuário
+    const newUser = await tx.user.create({
+      data: { name, email, passwordHash },
+    });
+
+    // 2. Cria Categorias Padrão para este usuário (Reaproveitando tua lista)
+    // Exemplo simplificado para não ficar gigante, podes adicionar todas depois
+    const defaultCategories = [
+      { name: "Salário", type: "INCOME", subs: ["Mensal"] },
+      {
+        name: "Alimentação",
+        type: "EXPENSE",
+        subs: ["Mercado", "Restaurante"],
+      },
+      { name: "Moradia", type: "EXPENSE", subs: ["Aluguel", "Luz"] },
+      { name: "Transporte", type: "EXPENSE", subs: ["Uber", "Gasolina"] },
+    ];
+
+    for (const cat of defaultCategories) {
+      await tx.category.create({
+        data: {
+          name: cat.name,
+          type: cat.type,
+          userId: newUser.id,
+          subCategories: {
+            create: cat.subs.map((sub) => ({ name: sub, userId: newUser.id })),
+          },
+        },
+      });
+    }
+
+    // Cria uma conta "Carteira" padrão
+    await tx.bankAccount.create({
+      data: {
+        bankName: "Carteira",
+        userId: newUser.id,
+        initialBalance: 0,
+        currentBalance: 0,
+      },
+    });
+
+    return newUser;
+  });
+
+  const token = signToken({ userId: user.id });
+  return { user: { id: user.id, name: user.name, email: user.email }, token };
+});
+
+// Schema Login
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+});
+
+app.post("/auth/login", async (req, reply) => {
+  const { email, password } = loginSchema.parse(req.body);
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) return reply.status(400).send({ error: "Invalid credentials" });
+
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isValid) return reply.status(400).send({ error: "Invalid credentials" });
+
+  const token = signToken({ userId: user.id });
+  return { user: { id: user.id, name: user.name, email: user.email }, token };
+});
+
+// --- ROTAS PROTEGIDAS ---
 
 app.get("/dashboard-data", async () => {
   // Busca contas
@@ -53,21 +135,18 @@ const createCategorySchema = z.object({
   subCategories: z.array(z.string()).optional().default([]),
 });
 
-app.get("/categories", async () => {
+app.get("/categories", { preHandler: [authenticate] }, async (req) => {
   const categories = await prisma.category.findMany({
-    include: {
-      subCategories: true,
-    },
-    orderBy: {
-      name: "asc",
-    },
+    where: { userId: req.user?.id },
+    include: { subCategories: true },
+    orderBy: { name: "asc" },
   });
   return categories;
 });
 
-app.post("/categories", async (request, reply) => {
+app.post("/categories", { preHandler: [authenticate] }, async (req, reply) => {
   // 1. Validar os dados de entrada
-  const parseResult = createCategorySchema.safeParse(request.body);
+  const parseResult = createCategorySchema.safeParse(req.body);
 
   if (!parseResult.success) {
     return reply.status(400).send({
@@ -84,9 +163,13 @@ app.post("/categories", async (request, reply) => {
       data: {
         name,
         type,
+        userId: req.user!.id,
         // Magia do Prisma: Criar filhos (Nested Writes)
         subCategories: {
-          create: subCategories.map((subName) => ({ name: subName })),
+          create: subCategories.map((subName) => ({
+            name: subName,
+            userId: req.user!.id,
+          })),
         },
       },
       include: {
@@ -108,40 +191,46 @@ const createBankAccountSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
-app.get("/bank-accounts", async () => {
+app.get("/bank-accounts", { preHandler: [authenticate] }, async (req) => {
   const accounts = await prisma.bankAccount.findMany({
+    where: { userId: req.user?.id },
     orderBy: { bankName: "asc" },
   });
   return accounts;
 });
 
-app.post("/bank-accounts", async (request, reply) => {
-  const parseResult = createBankAccountSchema.safeParse(request.body);
+app.post(
+  "/bank-accounts",
+  { preHandler: [authenticate] },
+  async (req, reply) => {
+    const parseResult = createBankAccountSchema.safeParse(req.body);
 
-  if (!parseResult.success) {
-    return reply.status(400).send({
-      error: "Dados inválidos",
-      details: parseResult.error.format(),
-    });
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: "Dados inválidos",
+        details: parseResult.error.format(),
+      });
+    }
+
+    const { bankName, initialBalance, isActive } = parseResult.data;
+
+    try {
+      const account = await prisma.bankAccount.create({
+        data: {
+          bankName,
+          initialBalance,
+          currentBalance: initialBalance, // O saldo atual começa igual ao inicial
+          isActive,
+          userId: req.user!.id,
+        },
+      });
+      return reply.status(201).send(account);
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: "Erro ao criar conta" });
+    }
   }
-
-  const { bankName, initialBalance, isActive } = parseResult.data;
-
-  try {
-    const account = await prisma.bankAccount.create({
-      data: {
-        bankName,
-        initialBalance,
-        currentBalance: initialBalance, // O saldo atual começa igual ao inicial
-        isActive,
-      },
-    });
-    return reply.status(201).send(account);
-  } catch (error) {
-    console.error(error);
-    return reply.status(500).send({ error: "Erro ao criar conta" });
-  }
-});
+);
 
 // ROTAS PARA CARTÕES DE CRÉDITO
 const createCreditCardSchema = z.object({
@@ -153,43 +242,49 @@ const createCreditCardSchema = z.object({
   isActive: z.boolean().default(true),
 });
 
-app.get("/credit-cards", async () => {
+app.get("/credit-cards", { preHandler: [authenticate] }, async (req) => {
   const cards = await prisma.creditCard.findMany({
+    where: { userId: req.user?.id },
     orderBy: { title: "asc" },
   });
   return cards;
 });
 
-app.post("/credit-cards", async (request, reply) => {
-  const parseResult = createCreditCardSchema.safeParse(request.body);
+app.post(
+  "/credit-cards",
+  { preHandler: [authenticate] },
+  async (req, reply) => {
+    const parseResult = createCreditCardSchema.safeParse(req.body);
 
-  if (!parseResult.success) {
-    return reply.status(400).send({
-      error: "Dados inválidos",
-      details: parseResult.error.format(),
-    });
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: "Dados inválidos",
+        details: parseResult.error.format(),
+      });
+    }
+
+    const { title, brand, limit, dueDate, closingDate, isActive } =
+      parseResult.data;
+
+    try {
+      const card = await prisma.creditCard.create({
+        data: {
+          title,
+          brand,
+          limit,
+          dueDate,
+          closingDate,
+          isActive,
+          userId: req.user!.id,
+        },
+      });
+      return reply.status(201).send(card);
+    } catch (error) {
+      console.error(error);
+      return reply.status(500).send({ error: "Erro ao criar cartão" });
+    }
   }
-
-  const { title, brand, limit, dueDate, closingDate, isActive } =
-    parseResult.data;
-
-  try {
-    const card = await prisma.creditCard.create({
-      data: {
-        title,
-        brand,
-        limit,
-        dueDate,
-        closingDate,
-        isActive,
-      },
-    });
-    return reply.status(201).send(card);
-  } catch (error) {
-    console.error(error);
-    return reply.status(500).send({ error: "Erro ao criar cartão" });
-  }
-});
+);
 
 const start = async () => {
   try {
