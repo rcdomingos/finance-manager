@@ -1,6 +1,7 @@
-import { CreditCard as CardIcon } from "lucide-react";
+import { CreditCard as CardIcon, CalendarClock } from "lucide-react";
 import { type CreditCard } from "../../../types";
 import { formatCurrency } from "../../../utils/formatCurrency";
+import clsx from "clsx";
 
 interface CreditCardItemProps {
   card: CreditCard;
@@ -17,10 +18,21 @@ export const CreditCardItem = ({ card }: CreditCardItemProps) => {
 
   return (
     <div
-      className={`relative h-48 rounded-xl p-6 text-white shadow-lg bg-gradient-to-br ${getGradient(
-        card.brand
-      )} overflow-hidden group transition-transform hover:-translate-y-1`}
+      className={clsx(
+        "relative h-52 rounded-xl p-6 text-white shadow-lg overflow-hidden group transition-transform hover:-translate-y-1",
+        card.isActive
+          ? `bg-gradient-to-br ${getGradient(card.brand)}`
+          : "bg-gray-800"
+      )}
     >
+      {!card.isActive && (
+        <div className="absolute inset-0 bg-black/40 z-20 flex items-center justify-center backdrop-blur-[1px]">
+          <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold border border-white/30">
+            INATIVO
+          </span>
+        </div>
+      )}
+
       <div className="absolute -right-6 -bottom-6 opacity-10 rotate-12">
         <CardIcon size={150} />
       </div>
@@ -34,21 +46,22 @@ export const CreditCardItem = ({ card }: CreditCardItemProps) => {
             {card.brand}
           </span>
         </div>
+
         <div>
-          <p className="text-xs opacity-70 mb-1">Nome do Cartão</p>
           <p className="font-semibold text-lg tracking-wide">{card.title}</p>
+          <div className="flex items-center gap-4 mt-2 text-xs opacity-80">
+            <div className="flex items-center gap-1">
+              <CalendarClock size={12} />
+              <span>Fecha dia {card.closingDate}</span>
+            </div>
+            <span>|</span>
+            <div>Vence dia {card.dueDate}</div>
+          </div>
         </div>
 
-        <div className="flex justify-between items-end">
-          <div>
-            <p className="text-xs opacity-70">Limite Total</p>
-            <p className="font-bold text-xl">{formatCurrency(card.limit)}</p>
-          </div>
-          {/* Fatura atual (Placeholder para o futuro) */}
-          {/* <div className="text-right">
-             <p className="text-xs opacity-70">Fatura Atual</p>
-             <p className="font-bold text-sm">R$ 0,00</p>
-          </div> */}
+        <div>
+          <p className="text-xs opacity-70">Limite Total</p>
+          <p className="font-bold text-xl">{formatCurrency(card.limit)}</p>
         </div>
       </div>
     </div>

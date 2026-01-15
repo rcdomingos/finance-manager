@@ -148,6 +148,9 @@ const createCreditCardSchema = z.object({
   title: z.string().min(1, "Nome do cartão é obrigatório"),
   brand: z.string().min(1, "Bandeira é obrigatória"), // Visa, Mastercard, etc.
   limit: z.number().min(0, "Limite deve ser positivo"),
+  dueDate: z.number().min(1).max(31), // Valida se o dia é lógico (entre 1 e 31)
+  closingDate: z.number().min(1).max(31),
+  isActive: z.boolean().default(true),
 });
 
 app.get("/credit-cards", async () => {
@@ -167,7 +170,8 @@ app.post("/credit-cards", async (request, reply) => {
     });
   }
 
-  const { title, brand, limit } = parseResult.data;
+  const { title, brand, limit, dueDate, closingDate, isActive } =
+    parseResult.data;
 
   try {
     const card = await prisma.creditCard.create({
@@ -175,6 +179,9 @@ app.post("/credit-cards", async (request, reply) => {
         title,
         brand,
         limit,
+        dueDate,
+        closingDate,
+        isActive,
       },
     });
     return reply.status(201).send(card);

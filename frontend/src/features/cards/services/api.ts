@@ -5,6 +5,9 @@ export interface CreateCardDTO {
   title: string;
   brand: string;
   limit: number;
+  dueDate: number;
+  closingDate: number;
+  isActive: boolean;
 }
 
 export const getCards = async (): Promise<CreditCard[]> => {

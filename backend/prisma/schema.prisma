@@ -27,12 +27,15 @@ model BankAccount {
 }
 
 model CreditCard {
-  id        String   @id @default(uuid())
-  title     String
-  brand     String // Visa, Master, etc.
-  limit     Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  title       String
+  brand       String // Visa, Master, etc.
+  limit       Float
+  dueDate     Int      @default(10) // Dia do Vencimento (1-31)
+  closingDate Int      @default(3) // Dia do Fechamento (1-31)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   transactions Transaction[]
 }
