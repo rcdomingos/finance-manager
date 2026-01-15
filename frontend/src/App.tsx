@@ -2,10 +2,10 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "./components/layout/MainLayout";
 import { Dashboard } from "./pages/Dashboard";
 import { CategoriesPage } from "./features/categories/pages/CategoriesPage";
+import { AccountsPage } from "./features/accounts/pages/AccountsPage";
 
 const Transactions = () => <h1 className="text-2xl font-bold">Lançamentos</h1>;
 const Reports = () => <h1 className="text-2xl font-bold">Relatórios</h1>;
-const Accounts = () => <h1 className="text-2xl font-bold">Minhas Contas</h1>;
 const Cards = () => <h1 className="text-2xl font-bold">Meus Cartões</h1>;
 
 function App() {
@@ -21,7 +21,7 @@ function App() {
 
           {/* Rotas de Cadastro */}
           <Route path="categories" element={<CategoriesPage />} />
-          <Route path="accounts" element={<Accounts />} />
+          <Route path="accounts" element={<AccountsPage />} />
           <Route path="cards" element={<Cards />} />
         </Route>
 

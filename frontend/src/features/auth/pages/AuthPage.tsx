@@ -1,7 +1,9 @@
-// import React, { useState } from 'react';
-// import { Card, Button, Input } from '../../../components/UI';
-// import { authService } from '../../../services/authService';
-// import { LogIn, UserPlus, Wallet } from 'lucide-react';
+// import React, { useState } from "react";
+
+// import { authService } from "../../../services/authService";
+// import { LogIn, UserPlus, Wallet } from "lucide-react";
+// import { Input } from "../../../components/ui/Input";
+// import { Button } from "../../../components/ui/Button";
 
 // interface AuthPageProps {
 //   onAuthSuccess: () => void;
@@ -9,15 +11,15 @@
 
 // export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 //   const [isLogin, setIsLogin] = useState(true);
-//   const [email, setEmail] = useState('');
-//   const [password, setPassword] = useState('');
-//   const [name, setName] = useState('');
-//   const [error, setError] = useState('');
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [name, setName] = useState("");
+//   const [error, setError] = useState("");
 //   const [loading, setLoading] = useState(false);
 
 //   const handleSubmit = async (e: React.FormEvent) => {
 //     e.preventDefault();
-//     setError('');
+//     setError("");
 //     setLoading(true);
 
 //     try {
@@ -29,7 +31,7 @@
 //       }
 //       onAuthSuccess();
 //     } catch (err: any) {
-//       setError(err.message || 'Authentication failed');
+//       setError(err.message || "Authentication failed");
 //     } finally {
 //       setLoading(false);
 //     }
@@ -42,16 +44,22 @@
 //           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white mb-4 shadow-lg shadow-blue-200">
 //             <Wallet size={32} />
 //           </div>
-//           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Expensify</h1>
+//           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+//             Expensify
+//           </h1>
 //           <p className="text-slate-500 mt-2">Personal Expense Manager</p>
 //         </div>
 
-//         <Card className="p-8">
+//         <div
+//           className={`bg-white rounded-xl border border-slate-200 shadow-sm p-8`}
+//         >
 //           <div className="flex bg-slate-100 p-1 rounded-lg mb-8">
 //             <button
 //               onClick={() => setIsLogin(true)}
 //               className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${
-//                 isLogin ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+//                 isLogin
+//                   ? "bg-white text-blue-600 shadow-sm"
+//                   : "text-slate-500 hover:text-slate-700"
 //               }`}
 //             >
 //               <LogIn size={18} /> Login
@@ -59,7 +67,9 @@
 //             <button
 //               onClick={() => setIsLogin(false)}
 //               className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${
-//                 !isLogin ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+//                 !isLogin
+//                   ? "bg-white text-blue-600 shadow-sm"
+//                   : "text-slate-500 hover:text-slate-700"
 //               }`}
 //             >
 //               <UserPlus size={18} /> Sign Up
@@ -100,10 +110,14 @@
 //             )}
 
 //             <Button type="submit" className="w-full py-3" disabled={loading}>
-//               {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+//               {loading
+//                 ? "Processing..."
+//                 : isLogin
+//                 ? "Sign In"
+//                 : "Create Account"}
 //             </Button>
 //           </form>
-//         </Card>
+//         </div>
 
 //         <p className="text-center text-xs text-slate-400">
 //           Securely managed and isolated data.

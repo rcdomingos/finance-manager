@@ -101,6 +101,48 @@ app.post("/categories", async (request, reply) => {
   }
 });
 
+// ROTAS PARA CONTAS BANCÁRIAS
+const createBankAccountSchema = z.object({
+  bankName: z.string().min(1, "Nome do banco é obrigatório"),
+  initialBalance: z.number().default(0),
+  isActive: z.boolean().default(true),
+});
+
+app.get("/bank-accounts", async () => {
+  const accounts = await prisma.bankAccount.findMany({
+    orderBy: { bankName: "asc" },
+  });
+  return accounts;
+});
+
+app.post("/bank-accounts", async (request, reply) => {
+  const parseResult = createBankAccountSchema.safeParse(request.body);
+
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      error: "Dados inválidos",
+      details: parseResult.error.format(),
+    });
+  }
+
+  const { bankName, initialBalance, isActive } = parseResult.data;
+
+  try {
+    const account = await prisma.bankAccount.create({
+      data: {
+        bankName,
+        initialBalance,
+        currentBalance: initialBalance, // O saldo atual começa igual ao inicial
+        isActive,
+      },
+    });
+    return reply.status(201).send(account);
+  } catch (error) {
+    console.error(error);
+    return reply.status(500).send({ error: "Erro ao criar conta" });
+  }
+});
+
 const start = async () => {
   try {
     await app.listen({ port: port });
