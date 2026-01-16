@@ -107,24 +107,81 @@ app.post("/auth/login", async (req, reply) => {
 
 // --- ROTAS PROTEGIDAS ---
 
-app.get("/dashboard-data", async () => {
-  // Busca contas
-  const accounts = await prisma.bankAccount.findMany();
+// ROTA PARA DASHBOARD
+app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
+  const { query } = req;
+  const now = new Date();
 
-  // Busca cartões
-  const cards = await prisma.creditCard.findMany();
+  // Filtros de Data (Mês/Ano)
+  const month = (query as any).month
+    ? parseInt((query as any).month)
+    : now.getMonth() + 1;
+  const year = (query as any).year
+    ? parseInt((query as any).year)
+    : now.getFullYear();
 
-  // Busca categorias com subcategorias
-  const categories = await prisma.category.findMany({
-    include: {
-      subCategories: true,
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59);
+
+  const userId = req.user?.id;
+
+  // 1. Saldo Atual (Soma das Contas Bancárias)
+  // Este valor é ATUAL, não depende do mês filtrado
+  const balanceAgg = await prisma.bankAccount.aggregate({
+    _sum: { currentBalance: true },
+    where: { userId },
+  });
+
+  // 2. Receitas e Despesas (Do Mês Selecionado)
+  const transactionsAgg = await prisma.transaction.groupBy({
+    by: ["type"],
+    _sum: { amount: true },
+    where: {
+      userId,
+      date: { gte: startDate, lte: endDate },
     },
   });
 
+  // 3. Despesas por Categoria (Para o Gráfico)
+  const expensesByCategory = await prisma.transaction.groupBy({
+    by: ["categoryId"],
+    _sum: { amount: true },
+    where: {
+      userId,
+      type: "EXPENSE",
+      date: { gte: startDate, lte: endDate },
+    },
+  });
+
+  // Precisamos buscar os nomes das categorias (o groupBy só devolve o ID)
+  // Vamos buscar todas as categorias do user para mapear
+  const categories = await prisma.category.findMany({
+    where: { userId },
+    select: { id: true, name: true },
+  });
+
+  // Montar o objeto para o gráfico
+  const chartData = expensesByCategory.map((item) => {
+    const categoryName =
+      categories.find((c) => c.id === item.categoryId)?.name || "Outros";
+    return {
+      name: categoryName,
+      value: item._sum.amount || 0,
+    };
+  });
+
+  // Formatar totais
+  const income =
+    transactionsAgg.find((t) => t.type === "INCOME")?._sum.amount || 0;
+  const expense =
+    transactionsAgg.find((t) => t.type === "EXPENSE")?._sum.amount || 0;
+  const currentBalance = balanceAgg._sum.currentBalance || 0;
+
   return {
-    accounts,
-    cards,
-    categories,
+    currentBalance,
+    monthIncome: income,
+    monthExpense: expense,
+    chartData,
   };
 });
 
