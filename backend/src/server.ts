@@ -364,6 +364,8 @@ const createTransactionSchema = z
       .union([z.uuid(), z.literal("")])
       .optional()
       .transform((val) => (val === "" ? undefined : val)),
+
+    installments: z.number().min(1).optional().default(1),
   })
   .refine(
     (data) => {
@@ -403,6 +405,7 @@ app.post(
       paymentMethod,
       bankAccountId,
       creditCardId,
+      installments,
     } = result.data;
 
     const userId = request.user!.id; // Pega do token
@@ -410,42 +413,60 @@ app.post(
     try {
       // PRISMA TRANSACTION: Atomicidade garantida
       await prisma.$transaction(async (tx) => {
-        // 1. Criar o Registro da Transação
-        await tx.transaction.create({
-          data: {
-            description,
-            amount,
-            date,
-            type,
-            paymentMethod,
-            userId,
-            categoryId,
-            subCategoryId,
-            bankAccountId:
-              paymentMethod === "BANK_ACCOUNT" ? bankAccountId : null,
-            creditCardId: paymentMethod === "CREDIT_CARD" ? creditCardId : null,
-          },
-        });
+        const numberOfInstallments = installments || 1;
+        const installmentAmount = amount / numberOfInstallments;
 
-        // 2. Atualizar Saldos (A Lógica Financeira)
-        if (paymentMethod === "BANK_ACCOUNT" && bankAccountId) {
-          if (type === "INCOME") {
-            // Receita: Aumenta o saldo
-            await tx.bankAccount.update({
-              where: { id: bankAccountId },
-              data: { currentBalance: { increment: amount } },
-            });
-          } else if (type === "EXPENSE") {
-            // Despesa: Diminui o saldo
-            await tx.bankAccount.update({
-              where: { id: bankAccountId },
-              data: { currentBalance: { decrement: amount } },
-            });
+        for (let i = 0; i < numberOfInstallments; i++) {
+          const newDate = new Date(date);
+          const originalDay = date.getUTCDate();
+          newDate.setUTCMonth(date.getUTCMonth() + i);
+
+          if (newDate.getUTCDate() !== originalDay) {
+            newDate.setUTCDate(0);
           }
-        }
 
-        //TODO: Se for Cartão de Crédito, não mexemos no saldo da conta agora.
-        // Futuramente, podemos ter um campo 'usedLimit' no cartão e incrementar aqui.
+          const finalDescription =
+            numberOfInstallments > 1
+              ? `${description} (${i + 1}/${numberOfInstallments})`
+              : description;
+
+          // 1. Criar o Registro da Transação
+          await tx.transaction.create({
+            data: {
+              description: finalDescription,
+              amount: installmentAmount, // Salva o valor da parcela
+              date: newDate,
+              type,
+              paymentMethod,
+              userId,
+              categoryId,
+              subCategoryId,
+              bankAccountId:
+                paymentMethod === "BANK_ACCOUNT" ? bankAccountId : null,
+              creditCardId:
+                paymentMethod === "CREDIT_CARD" ? creditCardId : null,
+            },
+          });
+          // 2. Atualizar Saldos (A Lógica Financeira)
+          if (paymentMethod === "BANK_ACCOUNT" && bankAccountId) {
+            if (type === "INCOME") {
+              // Receita: Aumenta o saldo
+              await tx.bankAccount.update({
+                where: { id: bankAccountId },
+                data: { currentBalance: { increment: amount } },
+              });
+            } else if (type === "EXPENSE") {
+              // Despesa: Diminui o saldo
+              await tx.bankAccount.update({
+                where: { id: bankAccountId },
+                data: { currentBalance: { decrement: amount } },
+              });
+            }
+          }
+
+          //TODO: Se for Cartão de Crédito, não mexemos no saldo da conta agora.
+          // Futuramente, podemos ter um campo 'usedLimit' no cartão e incrementar aqui.
+        }
       });
 
       return reply

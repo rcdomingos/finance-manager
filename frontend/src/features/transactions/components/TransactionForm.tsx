@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,6 +25,7 @@ const schema = z
     paymentMethod: z.enum(["BANK_ACCOUNT", "CREDIT_CARD"]),
     bankAccountId: z.string().optional(),
     creditCardId: z.string().optional(),
+    installments: z.coerce.number().optional(),
   })
   .refine(
     (data) => {
@@ -46,7 +47,6 @@ interface Props {
 }
 
 export const TransactionForm = ({ onSubmit, onCancel, isLoading }: Props) => {
-  // Carregar dados auxiliares
   const { data: categories } = useCategories();
   const { data: accounts } = useAccounts();
   const { data: cards } = useCards();
@@ -65,6 +65,8 @@ export const TransactionForm = ({ onSubmit, onCancel, isLoading }: Props) => {
       date: new Date().toISOString().split("T")[0], // Hoje
     },
   });
+
+  const [isInstallment, setIsInstallment] = useState(false);
 
   // --- LÓGICA CONDICIONAL (WATCHERS) ---
   const selectedType = useWatch({ control, name: "type" });
@@ -92,7 +94,6 @@ export const TransactionForm = ({ onSubmit, onCancel, isLoading }: Props) => {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Tipo da Transação (Tabs visuais) */}
       <div className="grid grid-cols-3 gap-2 bg-gray-100 p-1 rounded-lg">
         {["EXPENSE", "INCOME", "TRANSFER"].map((type) => (
           <button
@@ -191,6 +192,59 @@ export const TransactionForm = ({ onSubmit, onCancel, isLoading }: Props) => {
       </div>
 
       <div className="border-t border-gray-100 my-4"></div>
+
+      {/* Condição de Pagamento - Só mostra opção de parcelar se for Despesa e Cartão */}
+      {selectedType === "EXPENSE" &&
+        selectedPaymentMethod === "CREDIT_CARD" && (
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mb-4">
+            <p className="text-sm font-medium text-orange-800 mb-2">
+              Condição de Pagamento
+            </p>
+            <div className="flex items-center gap-4">
+              <div className="flex bg-white rounded-md border border-orange-200 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsInstallment(false);
+                    setValue("installments", 1);
+                  }}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    !isInstallment
+                      ? "bg-orange-100 text-orange-700 font-medium"
+                      : "text-gray-600"
+                  }`}
+                >
+                  À vista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsInstallment(true)}
+                  className={`px-3 py-1.5 text-sm rounded transition-colors ${
+                    isInstallment
+                      ? "bg-orange-100 text-orange-700 font-medium"
+                      : "text-gray-600"
+                  }`}
+                >
+                  Parcelado
+                </button>
+              </div>
+
+              {/* Input de Parcelas (Só aparece se Parcelado for true) */}
+              {isInstallment && (
+                <div className="flex-1 animate-in fade-in slide-in-from-left-2">
+                  <Input
+                    type="number"
+                    placeholder="Qtd"
+                    min="2"
+                    max="99"
+                    {...register("installments")}
+                    className="bg-white"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Seção de Pagamento */}
       <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">

@@ -11,6 +11,7 @@ export interface CreateTransactionDTO {
   paymentMethod: "BANK_ACCOUNT" | "CREDIT_CARD";
   bankAccountId?: string;
   creditCardId?: string;
+  installments?: number;
 }
 
 export const createTransaction = async (data: CreateTransactionDTO) => {
