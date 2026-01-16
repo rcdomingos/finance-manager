@@ -18,7 +18,9 @@ export const createTransaction = async (data: CreateTransactionDTO) => {
   return response.data;
 };
 
-export const getTransactions = async () => {
-  const response = await api.get<Transaction[]>("/transactions");
+export const getTransactions = async (month: number, year: number) => {
+  const response = await api.get<Transaction[]>("/transactions", {
+    params: { month, year },
+  });
   return response.data;
 };

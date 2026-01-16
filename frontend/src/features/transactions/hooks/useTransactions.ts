@@ -1,5 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createTransaction, type CreateTransactionDTO } from "../services/api";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import {
+  createTransaction,
+  getTransactions,
+  type CreateTransactionDTO,
+} from "../services/api";
 
 export const useCreateTransaction = () => {
   const queryClient = useQueryClient();
@@ -12,5 +16,14 @@ export const useCreateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       //TODO: query de dashboard, invalidaríamos também
     },
+  });
+};
+
+export const useTransactions = (month: number, year: number) => {
+  return useQuery({
+    // A queryKey inclui as variáveis. Se month mudar, o React Query busca de novo auto.
+    queryKey: ["transactions", month, year],
+    queryFn: () => getTransactions(month, year),
+    staleTime: 1000 * 60 * 5, // 5 min
   });
 };

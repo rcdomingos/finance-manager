@@ -35,6 +35,7 @@ export interface Transaction {
   description: string;
   amount: number;
   type: "INCOME" | "EXPENSE" | "TRANSFER";
+  paymentMethod: "BANK_ACCOUNT" | "CREDIT_CARD";
   date: string;
   category: { name: string };
   subCategory: { name: string };

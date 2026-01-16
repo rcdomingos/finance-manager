@@ -395,6 +395,45 @@ app.post(
   }
 );
 
+app.get("/transactions", { preHandler: [authenticate] }, async (req) => {
+  const { query } = req;
+
+  // Pegamos mês e ano da Query String (ex: /transactions?month=1&year=2026)
+  // Se não vier, usamos a data de hoje.
+  const now = new Date();
+  const month = (query as any).month
+    ? parseInt((query as any).month)
+    : now.getMonth() + 1;
+  const year = (query as any).year
+    ? parseInt((query as any).year)
+    : now.getFullYear();
+
+  // Calcular o primeiro e o último dia do mês para o filtro
+  const startDate = new Date(year, month - 1, 1); // Dia 1 do mês atual
+  const endDate = new Date(year, month, 0, 23, 59, 59); // Último dia do mês
+
+  const transactions = await prisma.transaction.findMany({
+    where: {
+      userId: req.user?.id,
+      date: {
+        gte: startDate, // Maior ou igual ao dia 1
+        lte: endDate, // Menor ou igual ao último dia
+      },
+    },
+    include: {
+      category: true,
+      bankAccount: { select: { bankName: true } },
+      creditCard: { select: { title: true } },
+    },
+    orderBy: {
+      date: "desc",
+    },
+  });
+
+  return transactions;
+});
+
+// SERVIDOR
 const start = async () => {
   try {
     await app.listen({ port: port });
