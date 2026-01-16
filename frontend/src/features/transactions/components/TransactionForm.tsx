@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "../../../components/ui/Input";
 import { Button } from "../../../components/ui/Button";
 import { type CreateTransactionDTO } from "../services/api";
+import { type Transaction } from "../../../types";
 
 // Hooks de Dados auxiliares
 import { useCategories } from "../../categories/hooks/useCategories";
@@ -44,27 +45,61 @@ interface Props {
   onSubmit: (data: CreateTransactionDTO) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  initialData?: Transaction | null;
 }
 
-export const TransactionForm = ({ onSubmit, onCancel, isLoading }: Props) => {
+export const TransactionForm = ({
+  onSubmit,
+  onCancel,
+  isLoading,
+  initialData,
+}: Props) => {
   const { data: categories } = useCategories();
   const { data: accounts } = useAccounts();
   const { data: cards } = useCards();
+
+  // Calcula os valores iniciais (Memoizado para não recriar a cada render)
+  const defaultValues = useMemo(() => {
+    if (!initialData) {
+      return {
+        type: "EXPENSE",
+        paymentMethod: "BANK_ACCOUNT",
+        date: new Date().toISOString().split("T")[0],
+      };
+    }
+
+    // Formata a data UTC para YYYY-MM-DD para o input HTML funcionar
+    const dateStr = new Date(initialData.date).toISOString().split("T")[0];
+
+    return {
+      description: initialData.description,
+      amount: initialData.amount,
+      date: dateStr,
+      type: initialData.type,
+      categoryId: initialData.category.id, // O Backend devolve objeto, pegamos o ID
+      subCategoryId: initialData.subCategory.id,
+      paymentMethod: initialData.paymentMethod, // BANK_ACCOUNT ou CREDIT_CARD
+      // Se tiver conta, usa o ID, senão undefined
+      bankAccountId: initialData.bankAccount?.id,
+      creditCardId: initialData.creditCard?.id,
+    } as any; // Cast para evitar briga com tipos estritos do Zod no defaultValues
+  }, [initialData]);
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
-    defaultValues: {
-      type: "EXPENSE",
-      paymentMethod: "BANK_ACCOUNT",
-      date: new Date().toISOString().split("T")[0], // Hoje
-    },
+    defaultValues,
   });
+
+  useEffect(() => {
+    reset(defaultValues);
+  }, [defaultValues, reset]);
 
   const [isInstallment, setIsInstallment] = useState(false);
 
@@ -83,18 +118,26 @@ export const TransactionForm = ({ onSubmit, onCancel, isLoading }: Props) => {
 
   // 3. Efeito: Se mudar o Tipo, reseta a categoria selecionada para evitar inconsistência
   useEffect(() => {
-    setValue("categoryId", "");
-    setValue("subCategoryId", "");
+    if (!initialData) {
+      setValue("categoryId", "");
+      setValue("subCategoryId", "");
 
-    // Regra de Negócio: Se for Receita, força ser Conta Bancária
-    if (selectedType === "INCOME") {
-      setValue("paymentMethod", "BANK_ACCOUNT");
+      // Regra de Negócio: Se for Receita, força ser Conta Bancária
+      if (selectedType === "INCOME") {
+        setValue("paymentMethod", "BANK_ACCOUNT");
+      }
     }
-  }, [selectedType, setValue]);
+  }, [selectedType, setValue, initialData]);
+
+  const isEditing = !!initialData;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="grid grid-cols-3 gap-2 bg-gray-100 p-1 rounded-lg">
+      <div
+        className={`grid grid-cols-3 gap-2 bg-gray-100 p-1 rounded-lg ${
+          isEditing ? "opacity-50 pointer-events-none" : ""
+        }`}
+      >
         {["EXPENSE", "INCOME", "TRANSFER"].map((type) => (
           <button
             key={type}

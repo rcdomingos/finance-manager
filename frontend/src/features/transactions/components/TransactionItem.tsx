@@ -4,9 +4,13 @@ import { formatCurrency } from "../../../utils/formatCurrency";
 
 interface TransactionItemProps {
   transaction: Transaction;
+  onClick: () => void;
 }
 
-export const TransactionItem = ({ transaction }: TransactionItemProps) => {
+export const TransactionItem = ({
+  transaction,
+  onClick,
+}: TransactionItemProps) => {
   const isExpense = transaction.type === "EXPENSE";
 
   // Formata dia (ex: 15 JAN)
@@ -18,7 +22,10 @@ export const TransactionItem = ({ transaction }: TransactionItemProps) => {
     .replace(".", "");
 
   return (
-    <div className="group flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:border-blue-200 hover:shadow-md transition-all mb-3">
+    <div
+      onClick={onClick}
+      className="cursor-pointer group flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:border-blue-200 hover:shadow-md transition-all mb-3"
+    >
       <div className="flex items-center gap-4">
         {/* Data Box */}
         <div className="flex flex-col items-center justify-center w-12 h-12 bg-gray-50 rounded-lg text-gray-500 font-medium">

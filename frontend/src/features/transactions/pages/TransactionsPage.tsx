@@ -8,20 +8,29 @@ import { TransactionItem } from "../components/TransactionItem";
 import {
   useTransactions,
   useCreateTransaction,
+  useUpdateTransaction,
 } from "../hooks/useTransactions";
+import type { Transaction } from "../../../types";
+import { TransactionDetailsModal } from "../components/TransactionDetailsModal";
 
 export const TransactionsPage = () => {
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const {
     data: transactions,
     isLoading,
     isError,
   } = useTransactions(month, year);
+
   const createMutation = useCreateTransaction();
+  const updateMutation = useUpdateTransaction();
 
   const handleCreate = (data: any) => {
     createMutation.mutate(data, {
@@ -30,6 +39,20 @@ export const TransactionsPage = () => {
         //TODO: Toast de sucesso
       },
     });
+  };
+
+  const handleEditSubmit = (data: any) => {
+    if (selectedTransaction) {
+      updateMutation.mutate(
+        { id: selectedTransaction.id, data },
+        {
+          onSuccess: () => {
+            setIsDetailsOpen(false);
+            setSelectedTransaction(null);
+          },
+        }
+      );
+    }
   };
 
   return (
@@ -86,11 +109,28 @@ export const TransactionsPage = () => {
           </div>
         )}
 
-        {/* Mapeamento dos itens */}
-        {transactions?.map((transaction) => (
-          <TransactionItem key={transaction.id} transaction={transaction} />
+        {/* Lista */}
+        {transactions?.map((t) => (
+          <TransactionItem
+            key={t.id}
+            transaction={t}
+            onClick={() => {
+              setSelectedTransaction(t);
+              setIsDetailsOpen(true);
+            }}
+          />
         ))}
       </div>
+
+      {/* Modal Detalhes */}
+      <TransactionDetailsModal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        transaction={selectedTransaction}
+        onEdit={(t) => {
+          console.log("Editar", t);
+        }}
+      />
 
       {/* Modal de Criação */}
       <Modal

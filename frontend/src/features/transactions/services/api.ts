@@ -25,3 +25,11 @@ export const getTransactions = async (month: number, year: number) => {
   });
   return response.data;
 };
+
+export const deleteTransaction = async (id: string) => {
+  await api.delete(`/transactions/${id}`);
+};
+
+export const updateTransaction = async (id: string, data: any) => {
+  await api.put(`/transactions/${id}`, data);
+};

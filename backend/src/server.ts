@@ -13,7 +13,11 @@ const prisma = new PrismaClient();
 
 const port = process.env.PORT ? parseInt(process.env.PORT) : 3333;
 
-app.register(cors);
+// CORS
+app.register(cors, {
+  origin: true, // ['http://127.0.0.1:5173']
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+});
 
 // --- ROTAS PÚBLICAS (AUTH) ---
 app.get("/health", async () => {
@@ -344,6 +348,8 @@ app.post(
 );
 
 // ROTA PARA TRANSAÇÕES
+
+//Zod Schemas
 const createTransactionSchema = z
   .object({
     description: z.string().min(1, "Descrição necessária"),
@@ -382,6 +388,14 @@ const createTransactionSchema = z
       path: ["paymentMethod"],
     }
   );
+
+const updateTransactionSchema = z.object({
+  description: z.string().min(1),
+  amount: z.coerce.number().min(0.01),
+  date: z.coerce.date(),
+  categoryId: z.string().uuid(),
+  subCategoryId: z.string().uuid(),
+});
 
 app.post(
   "/transactions",
@@ -516,6 +530,112 @@ app.get("/transactions", { preHandler: [authenticate] }, async (req) => {
 
   return transactions;
 });
+
+app.put(
+  "/transactions/:id",
+  { preHandler: [authenticate] },
+  async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const userId = req.user!.id;
+
+    const result = updateTransactionSchema.safeParse(req.body);
+    if (!result.success) return reply.status(400).send(result.error);
+
+    const { description, amount, date, categoryId, subCategoryId } =
+      result.data;
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 1. Buscar transação antiga
+        const oldTransaction = await tx.transaction.findUnique({
+          where: { id, userId },
+        });
+        if (!oldTransaction) throw new Error("Transação não encontrada");
+
+        // 2. Calcular diferença de saldo (Se mudou o valor e é conta bancária)
+        if (
+          oldTransaction.paymentMethod === "BANK_ACCOUNT" &&
+          oldTransaction.bankAccountId
+        ) {
+          const difference = amount - oldTransaction.amount; // Novo - Velho
+
+          if (difference !== 0) {
+            if (oldTransaction.type === "EXPENSE") {
+              // Se a despesa aumentou (diff > 0), reduz saldo. Se diminuiu, aumenta saldo.
+              await tx.bankAccount.update({
+                where: { id: oldTransaction.bankAccountId },
+                data: { currentBalance: { decrement: difference } },
+              });
+            } else if (oldTransaction.type === "INCOME") {
+              // Se receita aumentou, aumenta saldo.
+              await tx.bankAccount.update({
+                where: { id: oldTransaction.bankAccountId },
+                data: { currentBalance: { increment: difference } },
+              });
+            }
+          }
+        }
+
+        // 3. Atualizar Dados
+        await tx.transaction.update({
+          where: { id },
+          data: { description, amount, date, categoryId, subCategoryId },
+        });
+      });
+
+      return reply.send({ message: "Atualizado com sucesso" });
+    } catch (err) {
+      return reply.status(500).send({ error: "Erro ao atualizar" });
+    }
+  }
+);
+
+app.delete(
+  "/transactions/:id",
+  { preHandler: [authenticate] },
+  async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const userId = req.user!.id;
+
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 1. Buscar transação antiga para saber o valor e conta
+        const transaction = await tx.transaction.findUnique({
+          where: { id, userId },
+        });
+
+        if (!transaction) throw new Error("Transação não encontrada");
+
+        // 2. Reverter o Saldo (Se for Conta Bancária)
+        if (
+          transaction.paymentMethod === "BANK_ACCOUNT" &&
+          transaction.bankAccountId
+        ) {
+          if (transaction.type === "EXPENSE") {
+            // Era despesa? Devolve o dinheiro (Incrementa)
+            await tx.bankAccount.update({
+              where: { id: transaction.bankAccountId },
+              data: { currentBalance: { increment: transaction.amount } },
+            });
+          } else if (transaction.type === "INCOME") {
+            // Era receita? Tira o dinheiro (Decrementa)
+            await tx.bankAccount.update({
+              where: { id: transaction.bankAccountId },
+              data: { currentBalance: { decrement: transaction.amount } },
+            });
+          }
+        }
+
+        // 3. Deletar o registro
+        await tx.transaction.delete({ where: { id } });
+      });
+
+      return reply.status(204).send(); // No Content
+    } catch (err) {
+      return reply.status(500).send({ error: "Erro ao excluir" });
+    }
+  }
+);
 
 // SERVIDOR
 const start = async () => {
