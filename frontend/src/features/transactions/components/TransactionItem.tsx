@@ -11,9 +11,9 @@ export const TransactionItem = ({ transaction }: TransactionItemProps) => {
 
   // Formata dia (ex: 15 JAN)
   const dateObj = new Date(transaction.date);
-  const day = dateObj.getDate().toString().padStart(2, "0");
+  const day = dateObj.getUTCDate().toString().padStart(2, "0");
   const month = dateObj
-    .toLocaleString("pt-BR", { month: "short" })
+    .toLocaleString("pt-BR", { month: "short", timeZone: "UTC" })
     .toUpperCase()
     .replace(".", "");
 

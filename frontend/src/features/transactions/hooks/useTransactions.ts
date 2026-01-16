@@ -14,14 +14,13 @@ export const useCreateTransaction = () => {
       // Importante: Invalidar saldo das contas e transações
       queryClient.invalidateQueries({ queryKey: ["bank-accounts"] });
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      //TODO: query de dashboard, invalidaríamos também
+      queryClient.invalidateQueries({ queryKey: ["dashboard-summary"] });
     },
   });
 };
 
 export const useTransactions = (month: number, year: number) => {
   return useQuery({
-    // A queryKey inclui as variáveis. Se month mudar, o React Query busca de novo auto.
     queryKey: ["transactions", month, year],
     queryFn: () => getTransactions(month, year),
     staleTime: 1000 * 60 * 5, // 5 min

@@ -351,13 +351,19 @@ const createTransactionSchema = z
     date: z.coerce.date(), // Zod converte string ISO para Date object
     type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
 
-    categoryId: z.string().uuid(),
-    subCategoryId: z.string().uuid(),
+    categoryId: z.uuid(),
+    subCategoryId: z.uuid(),
 
     // Campos opcionais dependendo do método de pagamento
     paymentMethod: z.enum(["BANK_ACCOUNT", "CREDIT_CARD"]),
-    bankAccountId: z.string().uuid().optional(),
-    creditCardId: z.string().uuid().optional(),
+    bankAccountId: z
+      .union([z.uuid(), z.literal("")])
+      .optional()
+      .transform((val) => (val === "" ? undefined : val)),
+    creditCardId: z
+      .union([z.uuid(), z.literal("")])
+      .optional()
+      .transform((val) => (val === "" ? undefined : val)),
   })
   .refine(
     (data) => {
@@ -465,9 +471,9 @@ app.get("/transactions", { preHandler: [authenticate] }, async (req) => {
     ? parseInt((query as any).year)
     : now.getFullYear();
 
-  // Calcular o primeiro e o último dia do mês para o filtro
-  const startDate = new Date(year, month - 1, 1); // Dia 1 do mês atual
-  const endDate = new Date(year, month, 0, 23, 59, 59); // Último dia do mês
+  // Calcular o primeiro e o último dia do mês para o filtro em UTC
+  const startDate = new Date(Date.UTC(year, month - 1, 1)); // Dia 1 do mês atual
+  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // Último dia do mês
 
   const transactions = await prisma.transaction.findMany({
     where: {
