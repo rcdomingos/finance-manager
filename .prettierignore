@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+coverage
+.env
+.DS_Store
+*.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Backend específico
+backend/prisma/migrations
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+# Frontend específico
+frontend/dist
