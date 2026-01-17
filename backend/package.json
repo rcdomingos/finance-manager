@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsx src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "npm install && npx prisma migrate dev && npx prisma db seed"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

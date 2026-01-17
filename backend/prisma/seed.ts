@@ -1,158 +1,140 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 type CategorySeed = {
   name: string;
-  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  type: 'INCOME' | 'EXPENSE' | 'TRANSFER';
   subcategories: string[];
 };
 
 const categoriesToCreate: CategorySeed[] = [
   {
-    name: "RENDA",
-    type: "INCOME",
+    name: 'Renda',
+    type: 'INCOME',
+    subcategories: ['Auxílios', 'Salários e Bônus', 'Vale Alimentação', 'Renda Extra'],
+  },
+  {
+    name: 'Transporte',
+    type: 'EXPENSE',
     subcategories: [
-      "AUXILIOS",
-      "SALÁRIOS E BÔNUS",
-      "VALE ALIMENTAÇÃO",
-      "RENDA EXTRA",
+      'Combustível',
+      'Manutenção do Carro',
+      'Transporte Público',
+      'Estacionamento e Pedágio',
+      'Aplicativos de Mobilidade',
     ],
   },
   {
-    name: "TRANSPORTE",
-    type: "EXPENSE",
+    name: 'Compras e Lazer',
+    type: 'EXPENSE',
     subcategories: [
-      "COMBUSTIVEL",
-      "MANUTENÇÃO DO CARRO",
-      "TRANSPORTE PÚBLICO",
-      "ESTACIONAMENTO E PEDÁGIO",
-      "APLICATIVOS DE MOBILIDADE",
+      'Coisas para Casa',
+      'Eletrônicos',
+      'Festas e Encontros',
+      'Jogos',
+      'Pets',
+      'Presentes',
+      'Roupas e Acessórios',
     ],
   },
   {
-    name: "COMPRAS E LAZER",
-    type: "EXPENSE",
+    name: 'Emergências',
+    type: 'EXPENSE',
+    subcategories: ['Despesas Emergenciais'],
+  },
+  {
+    name: 'Impostos e Taxas',
+    type: 'EXPENSE',
+    subcategories: ['IPTU', 'IPVA', 'IR', 'Licenciamento', 'Multa'],
+  },
+  {
+    name: 'Educação e Desenvolvimento',
+    type: 'EXPENSE',
+    subcategories: ['Livros e Materiais', 'Cursos e Treinamentos'],
+  },
+  {
+    name: 'Empréstimos',
+    type: 'EXPENSE',
+    subcategories: ['Cartão de Crédito', 'Financiamento'],
+  },
+  {
+    name: 'Alimentação',
+    type: 'EXPENSE',
+    subcategories: ['Restaurante ou Delivery', 'Supermercados'],
+  },
+  {
+    name: 'Assinaturas',
+    type: 'EXPENSE',
+    subcategories: ['Aplicativos', 'Serviços Digitais', 'Streamings', 'Plano Celular'],
+  },
+  {
+    name: 'Moradia',
+    type: 'EXPENSE',
     subcategories: [
-      "COISAS PARA CASA",
-      "ELETRÔNICOS",
-      "FESTAS E ENCONTROS",
-      "JOGOS",
-      "PETS",
-      "PRESENTES",
-      "ROUPAS E ACESSÓRIOS",
+      'Condomínio',
+      'Financiamento',
+      'Gás',
+      'Internet e Telefone',
+      'Luz',
+      'Reformas e Melhorias',
     ],
   },
   {
-    name: "EMERGÊNCIAS",
-    type: "EXPENSE",
-    subcategories: ["DESPESAS EMERGENCIAIS"],
-  },
-  {
-    name: "IMPOSTOS E TAXAS",
-    type: "EXPENSE",
-    subcategories: ["IPTU", "IPVA", "IR", "LICENCIAMENTO", "MULTA"],
-  },
-  {
-    name: "EDUCAÇÃO E DESENVOLVIMENTO",
-    type: "EXPENSE",
-    subcategories: ["LIVROS E MATERIAS", "CURSOS E TREINAMENTOS"],
-  },
-  {
-    name: "EMPRÉSTIMOS",
-    type: "EXPENSE",
-    subcategories: ["CARTÃO DE CREDITO", "FINANCIAMENTO"],
-  },
-  {
-    name: "ALIMENTAÇÃO",
-    type: "EXPENSE",
-    subcategories: ["RESTAURANTE OU DELIVERY", "SUPERMERCADOS"],
-  },
-  {
-    name: "ASSINATURAS",
-    type: "EXPENSE",
+    name: 'Saúde e Bem-Estar',
+    type: 'EXPENSE',
     subcategories: [
-      "APLICATIVOS",
-      "SERVIÇOS DIGITAIS",
-      "STREAMINGS",
-      "PLANO CELULAR",
+      'Suplementos',
+      'Academia e Fitness',
+      'Consultas e Tratamentos',
+      'Farmácia e Medicamentos',
+      'Planos de Saúde',
     ],
   },
   {
-    name: "MORADIA",
-    type: "EXPENSE",
+    name: 'Poupança',
+    type: 'EXPENSE', // Tratado como saída de caixa (saving)
+    subcategories: ['Reserva de Emergência', 'Reserva de Curto Prazo'],
+  },
+  {
+    name: 'Investimentos',
+    type: 'EXPENSE', // Tratado como saída de caixa (investment)
+    subcategories: ['Renda Fixa', 'Projeto Finclass'],
+  },
+  {
+    name: 'Transferências e Pagamentos',
+    type: 'TRANSFER', // Tipo especial para movimentação interna
     subcategories: [
-      "CONDOMINIO",
-      "FINANCIAMENTO",
-      "GÁS",
-      "INTERNET E TELEFONE",
-      "LUZ",
-      "REFORMAS E MELHORIAS",
+      'Cartão de Crédito', // Pagamento da fatura
+      'Transferências entre Contas',
+      'Transferências para Outras Pessoas',
     ],
   },
   {
-    name: "SAUDE E BEM-ESTAR",
-    type: "EXPENSE",
+    name: 'Seguros',
+    type: 'EXPENSE',
+    subcategories: ['Seguro de Automóvel', 'Seguro de Vida', 'Seguro Residencial'],
+  },
+  {
+    name: 'Manutenção e Reparos',
+    type: 'EXPENSE',
+    subcategories: ['Reparos de Eletrodomésticos', 'Reparos da Casa', 'Serviços de Limpeza'],
+  },
+  {
+    name: 'Viagem',
+    type: 'EXPENSE',
     subcategories: [
-      "SUPLEMENTOS",
-      "ACADEMIA E FITNESS",
-      "CONSULTAS E TRATAMENTOS",
-      "FARMÁCIA E MEDICAMENTOS",
-      "PLANOS DE SAÚDE",
-    ],
-  },
-  {
-    name: "POUPANÇA",
-    type: "EXPENSE", // Tratado como saída de caixa (saving)
-    subcategories: ["RESERVA DE EMERGENCIA", "RESERVA DE CURTO PRAZO"],
-  },
-  {
-    name: "INVESTIMENTOS",
-    type: "EXPENSE", // Tratado como saída de caixa (investment)
-    subcategories: ["RENDA FIXA", "PROJETO FINCLASS"],
-  },
-  {
-    name: "TRANSFERÊNCIAS E PAGAMENTOS",
-    type: "TRANSFER", // Tipo especial para movimentação interna
-    subcategories: [
-      "CARTÃO DE CREDITO", // Pagamento da fatura
-      "TRANSFERENCIAS ENTRE CONTAS",
-      "TRANSFERENCIAS PARA OUTRAS PESSOAS",
-    ],
-  },
-  {
-    name: "SEGUROS",
-    type: "EXPENSE",
-    subcategories: [
-      "SEGURO DE AUTOMÓVEL",
-      "SEGURO DE VIDA",
-      "SEGURO RESIDENCIAL",
-    ],
-  },
-  {
-    name: "MANUTENÇÃO E REPAROS",
-    type: "EXPENSE",
-    subcategories: [
-      "REPAROS DE ELETRODOMÉSTICOS",
-      "REPAROS DA CASA",
-      "SERVIÇOS DE LIMPEZA",
-    ],
-  },
-  {
-    name: "VIAGEM",
-    type: "EXPENSE",
-    subcategories: [
-      "PASSEIOS E LAZER",
-      "HOSPEDAGEM",
-      "PASSAGENS E TRANSPORTES",
-      "ALIMENTAÇÃO EM VIAGEM",
+      'Passeios e Lazer',
+      'Hospedagem',
+      'Passagens e Transportes',
+      'Alimentação em Viagem',
     ],
   },
 ];
 
 async function main() {
-  console.log("🌱 Starting seed...");
+  console.log('🌱 Starting seed...');
 
   // 1. Limpar banco (Ordem importa!)
   await prisma.transaction.deleteMany();
@@ -162,15 +144,15 @@ async function main() {
   await prisma.bankAccount.deleteMany();
   await prisma.user.deleteMany();
 
-  console.log("🧹 Database cleaned.");
+  console.log('🧹 Database cleaned.');
 
   // 2. Criar Usuário de Teste (Admin)
-  const passwordHash = await bcrypt.hash("123456", 10);
+  const passwordHash = await bcrypt.hash('123456', 10);
 
   const user = await prisma.user.create({
     data: {
-      name: "Admin User",
-      email: "admin@admin.com",
+      name: 'Admin User',
+      email: 'admin@admin.com',
       passwordHash,
     },
   });
@@ -180,7 +162,7 @@ async function main() {
   // 3. Criar Contas para este Usuário
   await prisma.bankAccount.create({
     data: {
-      bankName: "Nubank (Principal)",
+      bankName: 'Nubank (Principal)',
       initialBalance: 1500,
       currentBalance: 1500,
       isActive: true,
@@ -190,7 +172,7 @@ async function main() {
 
   await prisma.bankAccount.create({
     data: {
-      bankName: "Carteira",
+      bankName: 'Carteira',
       initialBalance: 50,
       currentBalance: 50,
       isActive: true,
@@ -201,8 +183,8 @@ async function main() {
   // 4. Criar Cartão para este Usuário
   await prisma.creditCard.create({
     data: {
-      title: "Nubank Roxinho",
-      brand: "Mastercard",
+      title: 'Nubank Roxinho',
+      brand: 'Mastercard',
       limit: 2000,
       dueDate: 10,
       closingDate: 3,
@@ -210,7 +192,7 @@ async function main() {
     },
   });
 
-  console.log("💳 Accounts and Cards created.");
+  console.log('💳 Accounts and Cards created.');
 
   // 5. Criar Categorias para este Usuário
   for (const cat of categoriesToCreate) {
@@ -229,7 +211,7 @@ async function main() {
     });
   }
 
-  console.log("✅ Categories seeded successfully!");
+  console.log('✅ Categories seeded successfully!');
 }
 
 main()
