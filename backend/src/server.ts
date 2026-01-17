@@ -457,24 +457,35 @@ app.post('/transactions', { preHandler: [authenticate] }, async (request, reply)
 app.get('/transactions', { preHandler: [authenticate] }, async (req) => {
   const { query } = req;
 
-  // Pegamos mês e ano da Query String (ex: /transactions?month=1&year=2026)
-  // Se não vier, usamos a data de hoje.
   const now = new Date();
+
+  // Filtros de Data (Obrigatórios/Default)
   const month = (query as any).month ? parseInt((query as any).month) : now.getMonth() + 1;
   const year = (query as any).year ? parseInt((query as any).year) : now.getFullYear();
+
+  // Filtros para pesquisas (Opcionais)
+  const type = (query as any).type; // 'INCOME' | 'EXPENSE' | undefined
+  const categoryId = (query as any).categoryId;
+  const paymentMethod = (query as any).paymentMethod; // 'CREDIT_CARD' | 'BANK_ACCOUNT'
 
   // Calcular o primeiro e o último dia do mês para o filtro em UTC
   const startDate = new Date(Date.UTC(year, month - 1, 1)); // Dia 1 do mês atual
   const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // Último dia do mês
 
-  const transactions = await prisma.transaction.findMany({
-    where: {
-      userId: req.user?.id,
-      date: {
-        gte: startDate, // Maior ou igual ao dia 1
-        lte: endDate, // Menor ou igual ao último dia
-      },
+  const where: any = {
+    userId: req.user?.id,
+    date: {
+      gte: startDate,
+      lte: endDate,
     },
+  };
+
+  if (type) where.type = type;
+  if (categoryId) where.categoryId = categoryId;
+  if (paymentMethod) where.paymentMethod = paymentMethod;
+
+  const transactions = await prisma.transaction.findMany({
+    where,
     include: {
       category: { select: { id: true, name: true } },
       subCategory: { select: { id: true, name: true } },

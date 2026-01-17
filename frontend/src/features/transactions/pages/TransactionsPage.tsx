@@ -12,17 +12,34 @@ import {
 } from '../hooks/useTransactions';
 import type { Transaction } from '../../../types';
 import { TransactionDetailsModal } from '../components/TransactionDetailsModal';
+import { TransactionFilters } from '../components/TransactionFilters';
 
 export const TransactionsPage = () => {
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth() + 1);
   const [year, setYear] = useState(today.getFullYear());
+
+  const [filters, setFilters] = useState<{
+    type?: string;
+    categoryId?: string;
+    paymentMethod?: string;
+  }>({});
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  const { data: transactions, isLoading, isError } = useTransactions(month, year);
+  const {
+    data: transactions,
+    isLoading,
+    isError,
+  } = useTransactions({
+    month,
+    year,
+    ...filters,
+  });
 
   const createMutation = useCreateTransaction();
   const updateMutation = useUpdateTransaction();
@@ -54,15 +71,21 @@ export const TransactionsPage = () => {
     setIsFormModalOpen(true);
   };
 
+  // Conta quantos filtros estão ativos para mostrar uma bolinha vermelha (Badge)
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+
   return (
-    <div>
+    <div onClick={() => setIsFilterOpen(false)}>
       {/* Header com Navegação de Data */}
       <div className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Lançamentos</h1>
         </div>
 
-        <div className="flex w-full items-center gap-3 md:w-auto">
+        <div
+          className="relative flex w-full items-center gap-3 md:w-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Navegador de Mês */}
           <div className="flex-1 md:flex-none">
             <MonthSelector
@@ -75,10 +98,29 @@ export const TransactionsPage = () => {
             />
           </div>
 
-          <Button variant="outline" className="hidden sm:flex">
-            <Filter size={18} className="mr-2" />
-            Filtrar
-          </Button>
+          {/* Botão de Filtro com Badge */}
+          <div className="relative">
+            <Button
+              variant={activeFiltersCount > 0 ? 'primary' : 'outline'} // Muda cor se ativo
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+            >
+              <Filter size={18} className="mr-2" />
+              Filtrar
+              {activeFiltersCount > 0 && (
+                <span className="ml-2 rounded-full bg-white px-1.5 py-0.5 text-xs font-bold text-blue-600">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </Button>
+
+            {/* O Componente Popover */}
+            <TransactionFilters
+              isOpen={isFilterOpen}
+              onClose={() => setIsFilterOpen(false)}
+              filters={filters}
+              onFilterChange={setFilters}
+            />
+          </div>
 
           <Button onClick={handleOpenNew}>
             <Plus size={20} className="mr-2" /> Novo
