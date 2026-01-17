@@ -1,4 +1,4 @@
-export type TransactionType = "INCOME" | "EXPENSE" | "TRANSFER";
+export type TransactionType = 'INCOME' | 'EXPENSE' | 'TRANSFER';
 
 export interface SubCategory {
   id: string;
@@ -34,11 +34,11 @@ export interface Transaction {
   id: string;
   description: string;
   amount: number;
-  type: "INCOME" | "EXPENSE" | "TRANSFER";
-  paymentMethod: "BANK_ACCOUNT" | "CREDIT_CARD";
+  type: 'INCOME' | 'EXPENSE' | 'TRANSFER';
+  paymentMethod: 'BANK_ACCOUNT' | 'CREDIT_CARD';
   date: string;
-  category: { name: string };
-  subCategory: { name: string };
-  bankAccount?: { bankName: string };
-  creditCard?: { title: string };
+  category: { id: string; name: string };
+  subCategory: { id: string; name: string };
+  bankAccount?: { id: string; bankName: string };
+  creditCard?: { id: string; title: string };
 }

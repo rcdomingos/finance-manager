@@ -1,10 +1,12 @@
-import * as dotenv from "dotenv";
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
-import bcrypt from "bcryptjs";
-import { authenticate, signToken } from "./lib/auth";
+import * as dotenv from 'dotenv';
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import { authenticate, signToken } from './lib/auth';
+
+import { DEFAULT_CATEGORIES } from './constants/categories.config';
 
 dotenv.config();
 
@@ -16,12 +18,12 @@ const port = process.env.PORT ? parseInt(process.env.PORT) : 3333;
 // CORS
 app.register(cors, {
   origin: true, // ['http://127.0.0.1:5173']
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 });
 
 // --- ROTAS PÚBLICAS (AUTH) ---
-app.get("/health", async () => {
-  return { status: "OK", message: "API is running" };
+app.get('/health', async () => {
+  return { status: 'OK', message: 'API is running' };
 });
 
 // Schema Registro
@@ -31,12 +33,11 @@ const registerSchema = z.object({
   password: z.string().min(6),
 });
 
-app.post("/auth/register", async (req, reply) => {
+app.post('/auth/register', async (req, reply) => {
   const { name, email, password } = registerSchema.parse(req.body);
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser)
-    return reply.status(400).send({ error: "User already exists" });
+  if (existingUser) return reply.status(400).send({ error: 'User already exists' });
 
   const passwordHash = await bcrypt.hash(password, 10);
 
@@ -48,26 +49,14 @@ app.post("/auth/register", async (req, reply) => {
     });
 
     // 2. Cria Categorias Padrão para este usuário (Reaproveitando tua lista)
-    // Exemplo simplificado para não ficar gigante, podes adicionar todas depois
-    const defaultCategories = [
-      { name: "Salário", type: "INCOME", subs: ["Mensal"] },
-      {
-        name: "Alimentação",
-        type: "EXPENSE",
-        subs: ["Mercado", "Restaurante"],
-      },
-      { name: "Moradia", type: "EXPENSE", subs: ["Aluguel", "Luz"] },
-      { name: "Transporte", type: "EXPENSE", subs: ["Uber", "Gasolina"] },
-    ];
-
-    for (const cat of defaultCategories) {
+    for (const cat of DEFAULT_CATEGORIES) {
       await tx.category.create({
         data: {
           name: cat.name,
           type: cat.type,
           userId: newUser.id,
           subCategories: {
-            create: cat.subs.map((sub) => ({ name: sub, userId: newUser.id })),
+            create: cat.subcategories.map((sub) => ({ name: sub, userId: newUser.id })),
           },
         },
       });
@@ -76,7 +65,7 @@ app.post("/auth/register", async (req, reply) => {
     // Cria uma conta "Carteira" padrão
     await tx.bankAccount.create({
       data: {
-        bankName: "Carteira",
+        bankName: 'Carteira',
         userId: newUser.id,
         initialBalance: 0,
         currentBalance: 0,
@@ -96,14 +85,14 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-app.post("/auth/login", async (req, reply) => {
+app.post('/auth/login', async (req, reply) => {
   const { email, password } = loginSchema.parse(req.body);
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return reply.status(400).send({ error: "Invalid credentials" });
+  if (!user) return reply.status(400).send({ error: 'Invalid credentials' });
 
   const isValid = await bcrypt.compare(password, user.passwordHash);
-  if (!isValid) return reply.status(400).send({ error: "Invalid credentials" });
+  if (!isValid) return reply.status(400).send({ error: 'Invalid credentials' });
 
   const token = signToken({ userId: user.id });
   return { user: { id: user.id, name: user.name, email: user.email }, token };
@@ -112,17 +101,13 @@ app.post("/auth/login", async (req, reply) => {
 // --- ROTAS PROTEGIDAS ---
 
 // ROTA PARA DASHBOARD
-app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
+app.get('/dashboard/summary', { preHandler: [authenticate] }, async (req) => {
   const { query } = req;
   const now = new Date();
 
   // Filtros de Data (Mês/Ano)
-  const month = (query as any).month
-    ? parseInt((query as any).month)
-    : now.getMonth() + 1;
-  const year = (query as any).year
-    ? parseInt((query as any).year)
-    : now.getFullYear();
+  const month = (query as any).month ? parseInt((query as any).month) : now.getMonth() + 1;
+  const year = (query as any).year ? parseInt((query as any).year) : now.getFullYear();
 
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0, 23, 59, 59);
@@ -138,7 +123,7 @@ app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
 
   // 2. Receitas e Despesas (Do Mês Selecionado)
   const transactionsAgg = await prisma.transaction.groupBy({
-    by: ["type"],
+    by: ['type'],
     _sum: { amount: true },
     where: {
       userId,
@@ -148,11 +133,11 @@ app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
 
   // 3. Despesas por Categoria (Para o Gráfico)
   const expensesByCategory = await prisma.transaction.groupBy({
-    by: ["categoryId"],
+    by: ['categoryId'],
     _sum: { amount: true },
     where: {
       userId,
-      type: "EXPENSE",
+      type: 'EXPENSE',
       date: { gte: startDate, lte: endDate },
     },
   });
@@ -166,8 +151,7 @@ app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
 
   // Montar o objeto para o gráfico
   const chartData = expensesByCategory.map((item) => {
-    const categoryName =
-      categories.find((c) => c.id === item.categoryId)?.name || "Outros";
+    const categoryName = categories.find((c) => c.id === item.categoryId)?.name || 'Outros';
     return {
       name: categoryName,
       value: item._sum.amount || 0,
@@ -175,10 +159,8 @@ app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
   });
 
   // Formatar totais
-  const income =
-    transactionsAgg.find((t) => t.type === "INCOME")?._sum.amount || 0;
-  const expense =
-    transactionsAgg.find((t) => t.type === "EXPENSE")?._sum.amount || 0;
+  const income = transactionsAgg.find((t) => t.type === 'INCOME')?._sum.amount || 0;
+  const expense = transactionsAgg.find((t) => t.type === 'EXPENSE')?._sum.amount || 0;
   const currentBalance = balanceAgg._sum.currentBalance || 0;
 
   return {
@@ -191,27 +173,27 @@ app.get("/dashboard/summary", { preHandler: [authenticate] }, async (req) => {
 
 // ROTAS PARA CATEGORIAS
 const createCategorySchema = z.object({
-  name: z.string().min(3, "Nome deve ter pelo menos 3 caracteres"),
-  type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
+  name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
+  type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
   subCategories: z.array(z.string()).optional().default([]),
 });
 
-app.get("/categories", { preHandler: [authenticate] }, async (req) => {
+app.get('/categories', { preHandler: [authenticate] }, async (req) => {
   const categories = await prisma.category.findMany({
     where: { userId: req.user?.id },
     include: { subCategories: true },
-    orderBy: { name: "asc" },
+    orderBy: { name: 'asc' },
   });
   return categories;
 });
 
-app.post("/categories", { preHandler: [authenticate] }, async (req, reply) => {
+app.post('/categories', { preHandler: [authenticate] }, async (req, reply) => {
   // 1. Validar os dados de entrada
   const parseResult = createCategorySchema.safeParse(req.body);
 
   if (!parseResult.success) {
     return reply.status(400).send({
-      error: "Dados inválidos",
+      error: 'Dados inválidos',
       details: parseResult.error.format(),
     });
   }
@@ -241,152 +223,141 @@ app.post("/categories", { preHandler: [authenticate] }, async (req, reply) => {
     return reply.status(201).send(category);
   } catch (error) {
     console.error(error);
-    return reply.status(500).send({ error: "Erro interno ao criar categoria" });
+    return reply.status(500).send({ error: 'Erro interno ao criar categoria' });
   }
 });
 
 // ROTAS PARA CONTAS BANCÁRIAS
 const createBankAccountSchema = z.object({
-  bankName: z.string().min(1, "Nome do banco é obrigatório"),
+  bankName: z.string().min(1, 'Nome do banco é obrigatório'),
   initialBalance: z.number().default(0),
   isActive: z.boolean().default(true),
 });
 
-app.get("/bank-accounts", { preHandler: [authenticate] }, async (req) => {
+app.get('/bank-accounts', { preHandler: [authenticate] }, async (req) => {
   const accounts = await prisma.bankAccount.findMany({
     where: { userId: req.user?.id },
-    orderBy: { bankName: "asc" },
+    orderBy: { bankName: 'asc' },
   });
   return accounts;
 });
 
-app.post(
-  "/bank-accounts",
-  { preHandler: [authenticate] },
-  async (req, reply) => {
-    const parseResult = createBankAccountSchema.safeParse(req.body);
+app.post('/bank-accounts', { preHandler: [authenticate] }, async (req, reply) => {
+  const parseResult = createBankAccountSchema.safeParse(req.body);
 
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: "Dados inválidos",
-        details: parseResult.error.format(),
-      });
-    }
-
-    const { bankName, initialBalance, isActive } = parseResult.data;
-
-    try {
-      const account = await prisma.bankAccount.create({
-        data: {
-          bankName,
-          initialBalance,
-          currentBalance: initialBalance, // O saldo atual começa igual ao inicial
-          isActive,
-          userId: req.user!.id,
-        },
-      });
-      return reply.status(201).send(account);
-    } catch (error) {
-      console.error(error);
-      return reply.status(500).send({ error: "Erro ao criar conta" });
-    }
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      error: 'Dados inválidos',
+      details: parseResult.error.format(),
+    });
   }
-);
+
+  const { bankName, initialBalance, isActive } = parseResult.data;
+
+  try {
+    const account = await prisma.bankAccount.create({
+      data: {
+        bankName,
+        initialBalance,
+        currentBalance: initialBalance, // O saldo atual começa igual ao inicial
+        isActive,
+        userId: req.user!.id,
+      },
+    });
+    return reply.status(201).send(account);
+  } catch (error) {
+    console.error(error);
+    return reply.status(500).send({ error: 'Erro ao criar conta' });
+  }
+});
 
 // ROTAS PARA CARTÕES DE CRÉDITO
 const createCreditCardSchema = z.object({
-  title: z.string().min(1, "Nome do cartão é obrigatório"),
-  brand: z.string().min(1, "Bandeira é obrigatória"), // Visa, Mastercard, etc.
-  limit: z.number().min(0, "Limite deve ser positivo"),
+  title: z.string().min(1, 'Nome do cartão é obrigatório'),
+  brand: z.string().min(1, 'Bandeira é obrigatória'), // Visa, Mastercard, etc.
+  limit: z.number().min(0, 'Limite deve ser positivo'),
   dueDate: z.number().min(1).max(31), // Valida se o dia é lógico (entre 1 e 31)
   closingDate: z.number().min(1).max(31),
   isActive: z.boolean().default(true),
 });
 
-app.get("/credit-cards", { preHandler: [authenticate] }, async (req) => {
+app.get('/credit-cards', { preHandler: [authenticate] }, async (req) => {
   const cards = await prisma.creditCard.findMany({
     where: { userId: req.user?.id },
-    orderBy: { title: "asc" },
+    orderBy: { title: 'asc' },
   });
   return cards;
 });
 
-app.post(
-  "/credit-cards",
-  { preHandler: [authenticate] },
-  async (req, reply) => {
-    const parseResult = createCreditCardSchema.safeParse(req.body);
+app.post('/credit-cards', { preHandler: [authenticate] }, async (req, reply) => {
+  const parseResult = createCreditCardSchema.safeParse(req.body);
 
-    if (!parseResult.success) {
-      return reply.status(400).send({
-        error: "Dados inválidos",
-        details: parseResult.error.format(),
-      });
-    }
-
-    const { title, brand, limit, dueDate, closingDate, isActive } =
-      parseResult.data;
-
-    try {
-      const card = await prisma.creditCard.create({
-        data: {
-          title,
-          brand,
-          limit,
-          dueDate,
-          closingDate,
-          isActive,
-          userId: req.user!.id,
-        },
-      });
-      return reply.status(201).send(card);
-    } catch (error) {
-      console.error(error);
-      return reply.status(500).send({ error: "Erro ao criar cartão" });
-    }
+  if (!parseResult.success) {
+    return reply.status(400).send({
+      error: 'Dados inválidos',
+      details: parseResult.error.format(),
+    });
   }
-);
+
+  const { title, brand, limit, dueDate, closingDate, isActive } = parseResult.data;
+
+  try {
+    const card = await prisma.creditCard.create({
+      data: {
+        title,
+        brand,
+        limit,
+        dueDate,
+        closingDate,
+        isActive,
+        userId: req.user!.id,
+      },
+    });
+    return reply.status(201).send(card);
+  } catch (error) {
+    console.error(error);
+    return reply.status(500).send({ error: 'Erro ao criar cartão' });
+  }
+});
 
 // ROTA PARA TRANSAÇÕES
 
 //Zod Schemas
 const createTransactionSchema = z
   .object({
-    description: z.string().min(1, "Descrição necessária"),
-    amount: z.coerce.number().min(0.01, "Valor deve ser positivo"),
+    description: z.string().min(1, 'Descrição necessária'),
+    amount: z.coerce.number().min(0.01, 'Valor deve ser positivo'),
     date: z.coerce.date(), // Zod converte string ISO para Date object
-    type: z.enum(["INCOME", "EXPENSE", "TRANSFER"]),
+    type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
 
     categoryId: z.uuid(),
     subCategoryId: z.uuid(),
 
     // Campos opcionais dependendo do método de pagamento
-    paymentMethod: z.enum(["BANK_ACCOUNT", "CREDIT_CARD"]),
+    paymentMethod: z.enum(['BANK_ACCOUNT', 'CREDIT_CARD']),
     bankAccountId: z
-      .union([z.uuid(), z.literal("")])
+      .union([z.uuid(), z.literal('')])
       .optional()
-      .transform((val) => (val === "" ? undefined : val)),
+      .transform((val) => (val === '' ? undefined : val)),
     creditCardId: z
-      .union([z.uuid(), z.literal("")])
+      .union([z.uuid(), z.literal('')])
       .optional()
-      .transform((val) => (val === "" ? undefined : val)),
+      .transform((val) => (val === '' ? undefined : val)),
 
     installments: z.number().min(1).optional().default(1),
   })
   .refine(
     (data) => {
       // Validação Customizada: Se for Conta, precisa do ID da conta
-      if (data.paymentMethod === "BANK_ACCOUNT" && !data.bankAccountId)
-        return false;
+      if (data.paymentMethod === 'BANK_ACCOUNT' && !data.bankAccountId) return false;
       // Se for Cartão, precisa do ID do cartão
-      if (data.paymentMethod === "CREDIT_CARD" && !data.creditCardId)
-        return false;
+      if (data.paymentMethod === 'CREDIT_CARD' && !data.creditCardId) return false;
       return true;
     },
     {
-      message: "Selecione a conta ou cartão corretamente",
-      path: ["paymentMethod"],
-    }
+      message: 'Selecione a conta ou cartão corretamente',
+      path: ['paymentMethod'],
+    },
   );
 
 const updateTransactionSchema = z.object({
@@ -397,114 +368,100 @@ const updateTransactionSchema = z.object({
   subCategoryId: z.string().uuid(),
 });
 
-app.post(
-  "/transactions",
-  { preHandler: [authenticate] },
-  async (request, reply) => {
-    const result = createTransactionSchema.safeParse(request.body);
+app.post('/transactions', { preHandler: [authenticate] }, async (request, reply) => {
+  const result = createTransactionSchema.safeParse(request.body);
 
-    if (!result.success) {
-      return reply
-        .status(400)
-        .send({ error: "Dados inválidos", details: result.error.format() });
-    }
-
-    const {
-      description,
-      amount,
-      date,
-      type,
-      categoryId,
-      subCategoryId,
-      paymentMethod,
-      bankAccountId,
-      creditCardId,
-      installments,
-    } = result.data;
-
-    const userId = request.user!.id; // Pega do token
-
-    try {
-      // PRISMA TRANSACTION: Atomicidade garantida
-      await prisma.$transaction(async (tx) => {
-        const numberOfInstallments = installments || 1;
-        const installmentAmount = amount / numberOfInstallments;
-
-        for (let i = 0; i < numberOfInstallments; i++) {
-          const newDate = new Date(date);
-          const originalDay = date.getUTCDate();
-          newDate.setUTCMonth(date.getUTCMonth() + i);
-
-          if (newDate.getUTCDate() !== originalDay) {
-            newDate.setUTCDate(0);
-          }
-
-          const finalDescription =
-            numberOfInstallments > 1
-              ? `${description} (${i + 1}/${numberOfInstallments})`
-              : description;
-
-          // 1. Criar o Registro da Transação
-          await tx.transaction.create({
-            data: {
-              description: finalDescription,
-              amount: installmentAmount, // Salva o valor da parcela
-              date: newDate,
-              type,
-              paymentMethod,
-              userId,
-              categoryId,
-              subCategoryId,
-              bankAccountId:
-                paymentMethod === "BANK_ACCOUNT" ? bankAccountId : null,
-              creditCardId:
-                paymentMethod === "CREDIT_CARD" ? creditCardId : null,
-            },
-          });
-          // 2. Atualizar Saldos (A Lógica Financeira)
-          if (paymentMethod === "BANK_ACCOUNT" && bankAccountId) {
-            if (type === "INCOME") {
-              // Receita: Aumenta o saldo
-              await tx.bankAccount.update({
-                where: { id: bankAccountId },
-                data: { currentBalance: { increment: amount } },
-              });
-            } else if (type === "EXPENSE") {
-              // Despesa: Diminui o saldo
-              await tx.bankAccount.update({
-                where: { id: bankAccountId },
-                data: { currentBalance: { decrement: amount } },
-              });
-            }
-          }
-
-          //TODO: Se for Cartão de Crédito, não mexemos no saldo da conta agora.
-          // Futuramente, podemos ter um campo 'usedLimit' no cartão e incrementar aqui.
-        }
-      });
-
-      return reply
-        .status(201)
-        .send({ message: "Transação criada com sucesso!" });
-    } catch (err) {
-      console.error(err);
-      return reply.status(500).send({ error: "Erro ao processar transação" });
-    }
+  if (!result.success) {
+    return reply.status(400).send({ error: 'Dados inválidos', details: result.error.format() });
   }
-);
 
-app.get("/transactions", { preHandler: [authenticate] }, async (req) => {
+  const {
+    description,
+    amount,
+    date,
+    type,
+    categoryId,
+    subCategoryId,
+    paymentMethod,
+    bankAccountId,
+    creditCardId,
+    installments,
+  } = result.data;
+
+  const userId = request.user!.id; // Pega do token
+
+  try {
+    // PRISMA TRANSACTION: Atomicidade garantida
+    await prisma.$transaction(async (tx) => {
+      const numberOfInstallments = installments || 1;
+      const installmentAmount = amount / numberOfInstallments;
+
+      for (let i = 0; i < numberOfInstallments; i++) {
+        const newDate = new Date(date);
+        const originalDay = date.getUTCDate();
+        newDate.setUTCMonth(date.getUTCMonth() + i);
+
+        if (newDate.getUTCDate() !== originalDay) {
+          newDate.setUTCDate(0);
+        }
+
+        const finalDescription =
+          numberOfInstallments > 1
+            ? `${description} (${i + 1}/${numberOfInstallments})`
+            : description;
+
+        // 1. Criar o Registro da Transação
+        await tx.transaction.create({
+          data: {
+            description: finalDescription,
+            amount: installmentAmount, // Salva o valor da parcela
+            date: newDate,
+            type,
+            paymentMethod,
+            userId,
+            categoryId,
+            subCategoryId,
+            bankAccountId: paymentMethod === 'BANK_ACCOUNT' ? bankAccountId : null,
+            creditCardId: paymentMethod === 'CREDIT_CARD' ? creditCardId : null,
+          },
+        });
+        // 2. Atualizar Saldos (A Lógica Financeira)
+        if (paymentMethod === 'BANK_ACCOUNT' && bankAccountId) {
+          if (type === 'INCOME') {
+            // Receita: Aumenta o saldo
+            await tx.bankAccount.update({
+              where: { id: bankAccountId },
+              data: { currentBalance: { increment: amount } },
+            });
+          } else if (type === 'EXPENSE') {
+            // Despesa: Diminui o saldo
+            await tx.bankAccount.update({
+              where: { id: bankAccountId },
+              data: { currentBalance: { decrement: amount } },
+            });
+          }
+        }
+
+        //TODO: Se for Cartão de Crédito, não mexemos no saldo da conta agora.
+        // Futuramente, podemos ter um campo 'usedLimit' no cartão e incrementar aqui.
+      }
+    });
+
+    return reply.status(201).send({ message: 'Transação criada com sucesso!' });
+  } catch (err) {
+    console.error(err);
+    return reply.status(500).send({ error: 'Erro ao processar transação' });
+  }
+});
+
+app.get('/transactions', { preHandler: [authenticate] }, async (req) => {
   const { query } = req;
 
   // Pegamos mês e ano da Query String (ex: /transactions?month=1&year=2026)
   // Se não vier, usamos a data de hoje.
   const now = new Date();
-  const month = (query as any).month
-    ? parseInt((query as any).month)
-    : now.getMonth() + 1;
-  const year = (query as any).year
-    ? parseInt((query as any).year)
-    : now.getFullYear();
+  const month = (query as any).month ? parseInt((query as any).month) : now.getMonth() + 1;
+  const year = (query as any).year ? parseInt((query as any).year) : now.getFullYear();
 
   // Calcular o primeiro e o último dia do mês para o filtro em UTC
   const startDate = new Date(Date.UTC(year, month - 1, 1)); // Dia 1 do mês atual
@@ -519,123 +476,109 @@ app.get("/transactions", { preHandler: [authenticate] }, async (req) => {
       },
     },
     include: {
-      category: true,
-      bankAccount: { select: { bankName: true } },
-      creditCard: { select: { title: true } },
+      category: { select: { id: true, name: true } },
+      subCategory: { select: { id: true, name: true } },
+      bankAccount: { select: { id: true, bankName: true } },
+      creditCard: { select: { id: true, title: true } },
     },
     orderBy: {
-      date: "desc",
+      date: 'desc',
     },
   });
 
   return transactions;
 });
 
-app.put(
-  "/transactions/:id",
-  { preHandler: [authenticate] },
-  async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const userId = req.user!.id;
+app.put('/transactions/:id', { preHandler: [authenticate] }, async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const userId = req.user!.id;
 
-    const result = updateTransactionSchema.safeParse(req.body);
-    if (!result.success) return reply.status(400).send(result.error);
+  const result = updateTransactionSchema.safeParse(req.body);
+  if (!result.success) return reply.status(400).send(result.error);
 
-    const { description, amount, date, categoryId, subCategoryId } =
-      result.data;
+  const { description, amount, date, categoryId, subCategoryId } = result.data;
 
-    try {
-      await prisma.$transaction(async (tx) => {
-        // 1. Buscar transação antiga
-        const oldTransaction = await tx.transaction.findUnique({
-          where: { id, userId },
-        });
-        if (!oldTransaction) throw new Error("Transação não encontrada");
-
-        // 2. Calcular diferença de saldo (Se mudou o valor e é conta bancária)
-        if (
-          oldTransaction.paymentMethod === "BANK_ACCOUNT" &&
-          oldTransaction.bankAccountId
-        ) {
-          const difference = amount - oldTransaction.amount; // Novo - Velho
-
-          if (difference !== 0) {
-            if (oldTransaction.type === "EXPENSE") {
-              // Se a despesa aumentou (diff > 0), reduz saldo. Se diminuiu, aumenta saldo.
-              await tx.bankAccount.update({
-                where: { id: oldTransaction.bankAccountId },
-                data: { currentBalance: { decrement: difference } },
-              });
-            } else if (oldTransaction.type === "INCOME") {
-              // Se receita aumentou, aumenta saldo.
-              await tx.bankAccount.update({
-                where: { id: oldTransaction.bankAccountId },
-                data: { currentBalance: { increment: difference } },
-              });
-            }
-          }
-        }
-
-        // 3. Atualizar Dados
-        await tx.transaction.update({
-          where: { id },
-          data: { description, amount, date, categoryId, subCategoryId },
-        });
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Buscar transação antiga
+      const oldTransaction = await tx.transaction.findUnique({
+        where: { id, userId },
       });
+      if (!oldTransaction) throw new Error('Transação não encontrada');
 
-      return reply.send({ message: "Atualizado com sucesso" });
-    } catch (err) {
-      return reply.status(500).send({ error: "Erro ao atualizar" });
-    }
-  }
-);
+      // 2. Calcular diferença de saldo (Se mudou o valor e é conta bancária)
+      if (oldTransaction.paymentMethod === 'BANK_ACCOUNT' && oldTransaction.bankAccountId) {
+        const difference = amount - oldTransaction.amount; // Novo - Velho
 
-app.delete(
-  "/transactions/:id",
-  { preHandler: [authenticate] },
-  async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const userId = req.user!.id;
-
-    try {
-      await prisma.$transaction(async (tx) => {
-        // 1. Buscar transação antiga para saber o valor e conta
-        const transaction = await tx.transaction.findUnique({
-          where: { id, userId },
-        });
-
-        if (!transaction) throw new Error("Transação não encontrada");
-
-        // 2. Reverter o Saldo (Se for Conta Bancária)
-        if (
-          transaction.paymentMethod === "BANK_ACCOUNT" &&
-          transaction.bankAccountId
-        ) {
-          if (transaction.type === "EXPENSE") {
-            // Era despesa? Devolve o dinheiro (Incrementa)
+        if (difference !== 0) {
+          if (oldTransaction.type === 'EXPENSE') {
+            // Se a despesa aumentou (diff > 0), reduz saldo. Se diminuiu, aumenta saldo.
             await tx.bankAccount.update({
-              where: { id: transaction.bankAccountId },
-              data: { currentBalance: { increment: transaction.amount } },
+              where: { id: oldTransaction.bankAccountId },
+              data: { currentBalance: { decrement: difference } },
             });
-          } else if (transaction.type === "INCOME") {
-            // Era receita? Tira o dinheiro (Decrementa)
+          } else if (oldTransaction.type === 'INCOME') {
+            // Se receita aumentou, aumenta saldo.
             await tx.bankAccount.update({
-              where: { id: transaction.bankAccountId },
-              data: { currentBalance: { decrement: transaction.amount } },
+              where: { id: oldTransaction.bankAccountId },
+              data: { currentBalance: { increment: difference } },
             });
           }
         }
+      }
 
-        // 3. Deletar o registro
-        await tx.transaction.delete({ where: { id } });
+      // 3. Atualizar Dados
+      await tx.transaction.update({
+        where: { id },
+        data: { description, amount, date, categoryId, subCategoryId },
+      });
+    });
+
+    return reply.send({ message: 'Atualizado com sucesso' });
+  } catch (err) {
+    return reply.status(500).send({ error: 'Erro ao atualizar' });
+  }
+});
+
+app.delete('/transactions/:id', { preHandler: [authenticate] }, async (req, reply) => {
+  const { id } = req.params as { id: string };
+  const userId = req.user!.id;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // 1. Buscar transação antiga para saber o valor e conta
+      const transaction = await tx.transaction.findUnique({
+        where: { id, userId },
       });
 
-      return reply.status(204).send(); // No Content
-    } catch (err) {
-      return reply.status(500).send({ error: "Erro ao excluir" });
-    }
+      if (!transaction) throw new Error('Transação não encontrada');
+
+      // 2. Reverter o Saldo (Se for Conta Bancária)
+      if (transaction.paymentMethod === 'BANK_ACCOUNT' && transaction.bankAccountId) {
+        if (transaction.type === 'EXPENSE') {
+          // Era despesa? Devolve o dinheiro (Incrementa)
+          await tx.bankAccount.update({
+            where: { id: transaction.bankAccountId },
+            data: { currentBalance: { increment: transaction.amount } },
+          });
+        } else if (transaction.type === 'INCOME') {
+          // Era receita? Tira o dinheiro (Decrementa)
+          await tx.bankAccount.update({
+            where: { id: transaction.bankAccountId },
+            data: { currentBalance: { decrement: transaction.amount } },
+          });
+        }
+      }
+
+      // 3. Deletar o registro
+      await tx.transaction.delete({ where: { id } });
+    });
+
+    return reply.status(204).send(); // No Content
+  } catch (err) {
+    return reply.status(500).send({ error: 'Erro ao excluir' });
   }
-);
+});
 
 // SERVIDOR
 const start = async () => {

@@ -1,14 +1,14 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { MainLayout } from "./components/layout/MainLayout";
-import type { JSX } from "react/jsx-dev-runtime";
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { MainLayout } from './components/layout/MainLayout';
+import type { JSX } from 'react/jsx-dev-runtime';
 
-import { AuthPage } from "./pages/AuthPage";
-import { Dashboard } from "./pages/Dashboard";
-import { CategoriesPage } from "./features/categories/pages/CategoriesPage";
-import { AccountsPage } from "./features/accounts/pages/AccountsPage";
-import { CardsPage } from "./features/cards/pages/CardsPage";
-import { TransactionsPage } from "./features/transactions/pages/TransactionsPage";
+import { AuthPage } from './pages/AuthPage';
+import { Dashboard } from './pages/Dashboard';
+import { CategoriesPage } from './features/categories/pages/CategoriesPage';
+import { AccountsPage } from './features/accounts/pages/AccountsPage';
+import { CardsPage } from './features/cards/pages/CardsPage';
+import { TransactionsPage } from './features/transactions/pages/TransactionsPage';
 
 // mocks page:
 const Reports = () => <h1 className="text-2xl font-bold">Relatórios</h1>;
