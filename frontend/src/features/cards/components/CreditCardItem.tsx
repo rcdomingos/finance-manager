@@ -8,21 +8,31 @@ interface CreditCardItemProps {
 }
 
 export const CreditCardItem = ({ card }: CreditCardItemProps) => {
-  const getGradient = (brand: string) => {
-    const b = brand.toLowerCase();
-    if (b.includes("master")) return "from-orange-700 to-red-900";
-    if (b.includes("visa")) return "from-blue-700 to-blue-900";
-    if (b.includes("nubank")) return "from-purple-700 to-purple-900";
-    return "from-gray-700 to-gray-900";
+  const getCardStyle = (issuer?: string, brand?: string) => {
+    const i = issuer?.toLowerCase() || "";
+    // Temas específicos por Emissor
+    if (i.includes("rico")) return { bg: "bg-[#2E3B78]", text: "text-[#F64F00]" };
+    if (i.includes("nubank")) return { bg: "bg-[#803EB3]", text: "text-white" };
+    if (i.includes("itau")) return { bg: "bg-[#F75000]", text: "text-white" };
+    if (i.includes("mercado pago")) return { bg: "bg-[#0D151C]", text: "text-white" };
+
+    // Fallback: Cores por Bandeira (se for "Outros" ou undefined)
+    const b = brand?.toLowerCase() || "";
+    if (b.includes("master")) return { bg: "bg-gradient-to-br from-orange-700 to-red-900", text: "text-white" };
+    if (b.includes("visa")) return { bg: "bg-gradient-to-br from-blue-700 to-blue-900", text: "text-white" };
+    
+    // Default genérico
+    return { bg: "bg-gradient-to-br from-gray-700 to-gray-900", text: "text-white" };
   };
+
+  const style = getCardStyle(card.issuer, card.brand);
 
   return (
     <div
       className={clsx(
-        "relative h-52 rounded-xl p-6 text-white shadow-lg overflow-hidden group transition-transform hover:-translate-y-1",
-        card.isActive
-          ? `bg-gradient-to-br ${getGradient(card.brand)}`
-          : "bg-gray-800"
+        "relative h-52 rounded-xl p-6 shadow-lg overflow-hidden group transition-transform hover:-translate-y-1",
+        card.isActive ? style.bg : "bg-gray-800",
+        style.text
       )}
     >
       {!card.isActive && (

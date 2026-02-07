@@ -275,6 +275,7 @@ app.post('/bank-accounts', { preHandler: [authenticate] }, async (req, reply) =>
 const createCreditCardSchema = z.object({
   title: z.string().min(1, 'Nome do cartão é obrigatório'),
   brand: z.string().min(1, 'Bandeira é obrigatória'), // Visa, Mastercard, etc.
+  issuer: z.string().min(1, 'Emissor é obrigatório'),
   limit: z.number().min(0, 'Limite deve ser positivo'),
   dueDate: z.number().min(1).max(31), // Valida se o dia é lógico (entre 1 e 31)
   closingDate: z.number().min(1).max(31),
@@ -299,13 +300,14 @@ app.post('/credit-cards', { preHandler: [authenticate] }, async (req, reply) => 
     });
   }
 
-  const { title, brand, limit, dueDate, closingDate, isActive } = parseResult.data;
+  const { title, brand, issuer, limit, dueDate, closingDate, isActive } = parseResult.data;
 
   try {
     const card = await prisma.creditCard.create({
       data: {
         title,
         brand,
+        issuer,
         limit,
         dueDate,
         closingDate,

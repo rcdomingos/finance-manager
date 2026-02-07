@@ -4,6 +4,7 @@ import { type CreditCard } from "../../../types";
 export interface CreateCardDTO {
   title: string;
   brand: string;
+  issuer?: string;
   limit: number;
   dueDate: number;
   closingDate: number;

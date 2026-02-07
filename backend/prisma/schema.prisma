@@ -42,6 +42,7 @@ model CreditCard {
   id          String   @id @default(uuid())
   title       String
   brand       String // Visa, Master, etc.
+  issuer      String   @default("Outros") // Nubank, Rico, Itau, Mercado Pago, Outros
   limit       Float
   dueDate     Int      @default(10) // Dia do Vencimento (1-31)
   closingDate Int      @default(3) // Dia do Fechamento (1-31)
